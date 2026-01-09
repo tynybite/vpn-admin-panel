@@ -17,8 +17,8 @@ import {
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu"
 import { Progress } from "@/components/ui/progress"
-import { Plus, Search, Filter, MoreVertical, Edit, Trash2, Power, Loader2 } from "lucide-react" // Removed Filter, Grid3x3, List. Added Server, RefreshCw, Smartphone, Key are not used in the provided snippet, so keeping original for now.
-import { Grid3x3, List } from "lucide-react" // Keeping Grid3x3 and List as they are used for viewMode buttons.
+import { Plus, Search, Filter, MoreVertical, Edit, Trash2, Power, Loader2, List, Grid3x3, Globe } from "lucide-react"
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -84,21 +84,18 @@ export default function ServersPage() {
       case "online":
         return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
       case "offline":
-        return "bg-red-500/10 text-red-500 border-red-500/20"
+        return "bg-destructive/10 text-destructive border-destructive/20"
       case "maintenance":
         return "bg-amber-500/10 text-amber-500 border-amber-500/20"
       default:
-        return "bg-gray-500/10 text-gray-500"
+        return "bg-muted text-muted-foreground"
     }
   }
-
-  const isServerInactive = (server: ServerData) => server.isActive === false || server.isActive === undefined && false // Default to true if undefined, but explicit check needed for older data? No, default should be true. Actually type optional? Type says boolean, but data might be missing. Using truthy check server.isActive !== false basically.
-
 
   const getLoadColor = (load: number) => {
     if (load < 50) return "bg-emerald-500"
     if (load < 80) return "bg-amber-500"
-    return "bg-red-500"
+    return "bg-destructive"
   }
 
   const handleToggleStatus = async (server: ServerData) => {
@@ -156,22 +153,22 @@ export default function ServersPage() {
   return (
     <>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Server Management</h1>
-          <p className="text-muted-foreground mt-2">Manage and monitor your VPN servers</p>
+        <div className="flex flex-col gap-1">
+          <h1 className="text-3xl font-heading font-bold uppercase tracking-tight">Server Management</h1>
+          <p className="text-muted-foreground font-sans text-sm">Monitor and configure network nodes.</p>
         </div>
 
         <AdminAlert />
 
-        <Card className="border-0 shadow-sm bg-card/50 backdrop-blur-xl rounded-[2rem] dark:border dark:border-white/10 dark:bg-white/5">
-          <CardHeader className="pb-4">
+        <div className="bg-card border border-border">
+          <div className="p-4 border-b border-border">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div className="flex-1 flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1 max-w-sm">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search servers..."
-                    className="pl-9 rounded-xl border-0 bg-secondary/50 focus-visible:ring-1 focus-visible:ring-primary/20"
+                    placeholder="Search query..."
+                    className="pl-9 bg-background"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -179,11 +176,11 @@ export default function ServersPage() {
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="gap-2 bg-transparent rounded-xl border-dashed">
+                    <Button variant="outline" className="gap-2 bg-background border-dashed">
                       <Filter className="h-4 w-4" />
                       Filters
                       {(statusFilter.length > 0 || tierFilter.length > 0) && (
-                        <Badge variant="secondary" className="ml-1 rounded-full px-1.5 py-0 text-xs">
+                        <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">
                           {statusFilter.length + tierFilter.length}
                         </Badge>
                       )}
@@ -257,11 +254,11 @@ export default function ServersPage() {
               </div>
 
               <div className="flex items-center gap-2">
-                <div className="flex rounded-xl border p-1 bg-secondary/30">
+                <div className="flex border border-border bg-muted/20 p-1 gap-1">
                   <Button
                     variant={viewMode === "table" ? "secondary" : "ghost"}
                     size="sm"
-                    className="px-2.5 rounded-lg shadow-sm"
+                    className={cn("px-2.5 h-7", viewMode === "table" ? "bg-background shadow-sm" : "")}
                     onClick={() => setViewMode("table")}
                   >
                     <List className="h-4 w-4" />
@@ -269,7 +266,7 @@ export default function ServersPage() {
                   <Button
                     variant={viewMode === "grid" ? "secondary" : "ghost"}
                     size="sm"
-                    className="px-2.5 rounded-lg shadow-sm"
+                    className={cn("px-2.5 h-7", viewMode === "grid" ? "bg-background shadow-sm" : "")}
                     onClick={() => setViewMode("grid")}
                   >
                     <Grid3x3 className="h-4 w-4" />
@@ -277,98 +274,90 @@ export default function ServersPage() {
                 </div>
                 <div className="flex gap-2 w-full lg:w-auto">
                   <Link href="/dashboard/servers/add">
-                    <Button className="w-full lg:w-auto rounded-xl shadow-lg hover:shadow-primary/25" disabled={!isAdmin}>
+                    <Button className="w-full lg:w-auto shadow-none" disabled={!isAdmin}>
                       <Plus className="mr-2 h-4 w-4" /> Add Server
                     </Button>
                   </Link>
                 </div>
               </div>
             </div>
-          </CardHeader>
+          </div>
 
-          <CardContent>
+          <div className="p-0">
             {filteredServers.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-muted-foreground">No servers found. Add your first server to get started.</p>
+                <p className="text-muted-foreground">No servers found.</p>
                 {isAdmin && (
                   <Link href="/dashboard/servers/add">
-                    <Button className="mt-4">
+                    <Button className="mt-4" variant="outline">
                       <Plus className="h-4 w-4 mr-2" />
-                      Add Server
+                      Add First Server
                     </Button>
                   </Link>
                 )}
               </div>
             ) : viewMode === "table" ? (
-              <div className="rounded-2xl border overflow-hidden bg-background/50">
+              <div className="border-t-0">
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Server</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>IP Address</TableHead>
-                      <TableHead>Load</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Tier</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                  <TableHeader className="bg-muted/30">
+                    <TableRow className="hover:bg-transparent border-b border-border">
+                      <TableHead className="font-bold uppercase text-xs tracking-wider">Server</TableHead>
+                      <TableHead className="font-bold uppercase text-xs tracking-wider">Location</TableHead>
+                      <TableHead className="font-bold uppercase text-xs tracking-wider">Address</TableHead>
+                      <TableHead className="font-bold uppercase text-xs tracking-wider">Load</TableHead>
+                      <TableHead className="font-bold uppercase text-xs tracking-wider">Status</TableHead>
+                      <TableHead className="font-bold uppercase text-xs tracking-wider">Tier</TableHead>
+                      <TableHead className="text-right font-bold uppercase text-xs tracking-wider">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredServers.map((server) => (
-                      <TableRow key={server.id}>
+                      <TableRow key={server.id} className="group hover:bg-muted/20 border-b border-border">
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                              <span className="text-xl">{server.flag}</span>
+                            <div className="w-8 h-8 bg-primary/10 flex items-center justify-center font-heading font-bold text-primary">
+                              {server.country.substring(0,2).toUpperCase()}
                             </div>
                             <div>
-                              <div className="font-semibold">{server.name}</div>
-                              <div className="text-xs text-muted-foreground">{server.protocol}</div>
+                              <div className="font-semibold text-sm">{server.name}</div>
+                              <div className="text-[10px] text-muted-foreground uppercase">{server.protocol}</div>
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span className="text-2xl">{server.flag}</span>
-                            <div>
-                              <div className="font-medium">{server.country}</div>
-                            </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="text-xl leading-none">{server.flag}</span>
+                            <span className="font-medium">{server.country}</span>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <code className="text-xs bg-muted px-2 py-1 rounded">
+                          <code className="text-xs bg-muted px-1.5 py-0.5 font-mono text-muted-foreground">
                             {server.ip}:{server.port}
                           </code>
                         </TableCell>
                         <TableCell>
-                          <div className="space-y-1 min-w-[120px]">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="font-medium">{server.load}%</span>
-                              <span className="text-muted-foreground">
+                          <div className="space-y-1 min-w-[100px]">
+                            <div className="flex items-center justify-between text-[10px] uppercase font-bold text-muted-foreground">
+                              <span>{server.load}%</span>
+                              <span>
                                 {server.currentUsers}/{server.maxCapacity}
                               </span>
                             </div>
-                            <Progress value={server.load} className={cn("h-2", getLoadColor(server.load))} />
+                            <Progress value={server.load} className={cn("h-1.5 bg-secondary", getLoadColor(server.load).replace('bg-', 'text-'))} indicatorClassName={getLoadColor(server.load)} />
                           </div>
                         </TableCell>
                         <TableCell>
-                          {server.isActive === false ? (
-                            <Badge variant="outline" className="bg-gray-500/10 text-gray-500 border-gray-500/20">
-                              Inactive
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className={getStatusColor(server.status)}>
-                              {server.status}
-                            </Badge>
-                          )}
+                           <Badge variant="outline" className={cn("uppercase text-[10px] tracking-wider", getStatusColor(server.isActive === false ? "offline" : server.status))}>
+                              {server.isActive === false ? "Inactive" : server.status}
+                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={server.tier === "premium" ? "default" : "secondary"}>{server.tier}</Badge>
+                          <Badge variant={server.tier === "premium" ? "default" : "secondary"} className="uppercase text-[10px]">{server.tier}</Badge>
                         </TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -401,89 +390,83 @@ export default function ServersPage() {
                 </Table>
               </div>
             ) : (
-              // Grid View
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
                 {filteredServers.map((server) => (
-                  <Card key={server.id} className="overflow-hidden rounded-[1.5rem] border-0 shadow-sm hover:shadow-md transition-all bg-card/80 hover:-translate-y-1 dark:border dark:border-white/10 dark:bg-white/5">
+                  <Card key={server.id} className="group border-border shadow-none hover:border-primary transition-colors">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-3xl">{server.flag}</span>
-                        <div>
-                          <h3 className="font-semibold">{server.name}</h3>
-                          <p className="text-xs text-muted-foreground">{server.country}</p>
-                        </div>
-                      </div>
-                      <DropdownMenu>
+                       <div className="flex items-center gap-2">
+                         <div className="w-8 h-8 bg-primary/10 flex items-center justify-center font-heading font-bold text-primary text-sm">
+                            {server.country.substring(0,2).toUpperCase()}
+                         </div>
+                         <div>
+                            <h3 className="font-semibold text-sm">{server.name}</h3>
+                            <p className="text-xs text-muted-foreground">{server.country}</p>
+                         </div>
+                       </div>
+                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
+                          <Button variant="ghost" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
                             <span className="sr-only">Open menu</span>
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleToggleStatus(server)} disabled={!isAdmin}>
-                            <Power className="h-4 w-4 mr-2" />
-                            {server.isActive ? "Deactivate" : "Activate"}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <Link href={`/dashboard/servers/edit/${server.id}`}>
-                            <DropdownMenuItem disabled={!isAdmin}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit Details
-                            </DropdownMenuItem>
-                          </Link>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => confirmDelete(server.id!, server.name)}
-                            disabled={!isAdmin}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
+                           <DropdownMenuItem onClick={() => handleToggleStatus(server)} disabled={!isAdmin}>
+                             <Power className="h-4 w-4 mr-2" />
+                             {server.isActive ? "Deactivate" : "Activate"}
+                           </DropdownMenuItem>
+                           <DropdownMenuSeparator />
+                           <Link href={`/dashboard/servers/edit/${server.id}`}>
+                              <DropdownMenuItem disabled={!isAdmin}>
+                                 <Edit className="h-4 w-4 mr-2" />
+                                 Edit Details
+                              </DropdownMenuItem>
+                           </Link>
+                           <DropdownMenuSeparator />
+                           <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => confirmDelete(server.id!, server.name)}
+                              disabled={!isAdmin}
+                           >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                           </DropdownMenuItem>
                         </DropdownMenuContent>
-                      </DropdownMenu>
+                       </DropdownMenu>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">IP:Port</span>
-                        <code className="text-xs bg-muted px-2 py-1 rounded">
-                          {server.ip}:{server.port}
-                        </code>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Protocol</span>
-                        <span className="font-medium">{server.protocol}</span>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-medium">Load: {server.load}%</span>
-                          <span className="text-muted-foreground">
-                            {server.currentUsers}/{server.maxCapacity}
-                          </span>
-                        </div>
-                        <Progress value={server.load} className={cn("h-2", getLoadColor(server.load))} />
-                      </div>
-                      <div className="flex items-center gap-2 pt-2">
-                        {server.isActive === false ? (
-                          <Badge variant="outline" className="bg-gray-500/10 text-gray-500 border-gray-500/20">
-                            Inactive
+                    <CardContent className="space-y-3 pt-2">
+                       <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="bg-muted/30 p-2 border border-border">
+                             <span className="text-muted-foreground block text-[10px] uppercase">IP Address</span>
+                             <span className="font-mono">{server.ip}:{server.port}</span>
+                          </div>
+                          <div className="bg-muted/30 p-2 border border-border">
+                             <span className="text-muted-foreground block text-[10px] uppercase">Protocol</span>
+                             <span className="font-medium">{server.protocol}</span>
+                          </div>
+                       </div>
+                       
+                       <div className="space-y-1">
+                          <div className="flex justify-between text-[10px] uppercase font-bold text-muted-foreground">
+                             <span>Load</span>
+                             <span>{server.load}%</span>
+                          </div>
+                          <Progress value={server.load} className={cn("h-1.5 bg-secondary", getLoadColor(server.load).replace('bg-', 'text-'))} indicatorClassName={getLoadColor(server.load)} />
+                       </div>
+
+                       <div className="flex items-center justify-between pt-2">
+                          <Badge variant="outline" className={cn("uppercase text-[10px] tracking-wider", getStatusColor(server.isActive === false ? "offline" : server.status))}>
+                             {server.isActive === false ? "Inactive" : server.status}
                           </Badge>
-                        ) : (
-                          <Badge variant="outline" className={getStatusColor(server.status)}>
-                            {server.status}
-                          </Badge>
-                        )}
-                        <Badge variant={server.tier === "premium" ? "default" : "secondary"}>{server.tier}</Badge>
-                      </div>
+                          <Badge variant={server.tier === "premium" ? "default" : "secondary"} className="uppercase text-[10px]">{server.tier}</Badge>
+                       </div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
@@ -491,7 +474,7 @@ export default function ServersPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Server</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete <strong>{deleteName}</strong>? This action cannot be undone and will disconnect any active users on this server.
+              Are you sure you want to delete <strong>{deleteName}</strong>? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

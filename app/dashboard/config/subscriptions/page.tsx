@@ -4,26 +4,14 @@ import { useState, useEffect } from "react"
 import {
     Loader2,
     Plus,
-    MoreVertical,
     Pencil,
     Trash2,
-    Check,
-    X,
-    CreditCard,
-    Tag,
     CheckCircle2,
     Sparkles,
-    Shield
 } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { cn } from "@/lib/utils"
 import {
     Dialog,
     DialogContent,
@@ -31,7 +19,6 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -41,7 +28,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { fetchWithAuth } from "@/lib/api-client"
-import { cn } from "@/lib/utils"
 import {
     AlertDialog,
     AlertDialogAction,
@@ -205,15 +191,15 @@ export default function SubscriptionsConfigPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between border-b border-border pb-6">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Subscriptions</h1>
-                    <p className="text-muted-foreground mt-1">Manage and customize your VPN pricing tiers.</p>
+                    <h1 className="text-3xl font-heading font-bold uppercase tracking-tight">Subscriptions</h1>
+                    <p className="text-muted-foreground font-sans text-sm mt-1">Manage pricing tiers and features.</p>
                 </div>
                 {isAdmin && (
-                    <Button onClick={() => handleOpenDialog()} className="rounded-full shadow-lg hover:shadow-primary/25 transition-all">
+                    <Button onClick={() => handleOpenDialog()} className="rounded-none shadow-none bg-primary text-primary-foreground hover:bg-primary/90">
                         <Plus className="mr-2 h-4 w-4" />
-                        New Plan
+                        NEW PLAN
                     </Button>
                 )}
             </div>
@@ -225,17 +211,17 @@ export default function SubscriptionsConfigPage() {
                     <div
                         key={plan.id}
                         className={cn(
-                            "relative group flex flex-col rounded-[2rem] border p-8 transition-all duration-300 hover:scale-[1.02] dark:border-white/10 dark:bg-white/5",
+                            "relative group flex flex-col rounded-none border p-8 transition-all duration-300 hover:border-primary border-border bg-card",
                             plan.popular
-                                ? "bg-gradient-to-b from-primary/10 to-transparent border-primary/20 shadow-xl shadow-primary/10 dark:from-primary/20"
-                                : "bg-card/50 backdrop-blur-sm border-border/50 hover:border-border/80 hover:shadow-lg",
-                            !plan.isActive && "opacity-60 grayscale"
+                                ? "border-primary shadow-sm"
+                                : "shadow-none",
+                            !plan.isActive && "opacity-60 grayscale border-dashed"
                         )}
                     >
                         {/* Popular Badge */}
                         {plan.popular && (
-                            <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                                <span className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground shadow-sm ring-4 ring-background">
+                            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-background px-2">
+                                <span className="inline-flex items-center gap-1 rounded-none bg-primary px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-primary-foreground ring-4 ring-background">
                                     <Sparkles className="h-3 w-3" />
                                     Best Value
                                 </span>
@@ -245,24 +231,24 @@ export default function SubscriptionsConfigPage() {
                         {/* Status Badge */}
                         {!plan.isActive && (
                             <div className="absolute top-4 right-4">
-                                <Badge variant="secondary" className="rounded-full px-2.5">Inacitve</Badge>
+                                <Badge variant="secondary" className="rounded-none px-2.5 text-[10px] uppercase">Inactive</Badge>
                             </div>
                         )}
 
                         <div className="mb-6">
-                            <h3 className="text-lg font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                            <h3 className="text-lg font-heading font-bold uppercase text-foreground mb-2 flex items-center gap-2">
                                 {plan.name}
-                                {plan.interval === "year" && <Badge variant="outline" className="rounded-full text-[10px] h-5 px-2">Save 20%</Badge>}
+                                {plan.interval === "year" && <Badge variant="outline" className="rounded-none text-[10px] h-5 px-2 bg-emerald-500/10 text-emerald-600 border-emerald-600">SAVE 20%</Badge>}
                             </h3>
                             <div className="flex items-baseline gap-1">
-                                <span className="text-4xl font-bold tracking-tight">{plan.currency === "USD" ? "$" : plan.currency} {plan.price}</span>
-                                <span className="text-muted-foreground font-medium">/{plan.interval}</span>
+                                <span className="text-4xl font-heading font-bold tracking-tight">{plan.currency === "USD" ? "$" : plan.currency} {plan.price}</span>
+                                <span className="text-muted-foreground font-medium uppercase text-xs">/{plan.interval}</span>
                             </div>
-                            <p className="text-xs text-muted-foreground mt-2 font-mono">{plan.googleProductId}</p>
+                            <p className="text-[10px] text-muted-foreground mt-2 font-mono uppercase tracking-wider">{plan.googleProductId}</p>
                         </div>
 
                         <div className="space-y-4 flex-1 mb-8">
-                            <div className="h-px bg-border/50" />
+                            <div className="h-px bg-border" />
                             <ul className="space-y-3">
                                 {plan.features?.slice(0, 5).map((feature, i) => (
                                     <li key={i} className="flex items-start gap-3 text-sm">
@@ -271,7 +257,7 @@ export default function SubscriptionsConfigPage() {
                                     </li>
                                 ))}
                                 {plan.features && plan.features.length > 5 && (
-                                    <li className="text-xs text-muted-foreground pl-8 pt-1">
+                                    <li className="text-xs text-muted-foreground pl-8 pt-1 uppercase">
                                         +{plan.features.length - 5} more benefits
                                     </li>
                                 )}
@@ -279,27 +265,27 @@ export default function SubscriptionsConfigPage() {
                         </div>
 
                         {isAdmin && (
-                            <div className="mt-auto pt-4 flex gap-3">
+                            <div className="mt-auto pt-4 flex gap-3 border-t border-border/50">
                                 <Button
                                     onClick={() => handleOpenDialog(plan)}
                                     className={cn(
-                                        "flex-1 rounded-xl h-11 font-medium shadow-none transition-transform active:scale-95",
-                                        plan.popular ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                                        "flex-1 rounded-none h-10 font-bold uppercase text-xs tracking-wider shadow-none",
+                                        plan.popular ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-muted text-secondary-foreground hover:bg-muted/80"
                                     )}
                                 >
-                                    <Pencil className="mr-2 h-4 w-4" />
+                                    <Pencil className="mr-2 h-3 w-3" />
                                     Edit Plan
                                 </Button>
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="rounded-xl h-11 w-11 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                    className="rounded-none h-10 w-10 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                                     onClick={() => {
                                         setCurrentPlan(plan)
                                         setIsDeleteDialogOpen(true)
                                     }}
                                 >
-                                    <Trash2 className="h-5 w-5" />
+                                    <Trash2 className="h-4 w-4" />
                                 </Button>
                             </div>
                         )}
@@ -309,83 +295,88 @@ export default function SubscriptionsConfigPage() {
 
             {/* Edit/Create Dialog */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-w-lg rounded-none border-border">
                     <DialogHeader>
-                        <DialogTitle>{currentPlan.id ? "Edit Plan" : "Create New Plan"}</DialogTitle>
-                        <DialogDescription>
-                            Configure subscription details. Ensure "Product ID" matches Google Play Console.
+                        <DialogTitle className="font-heading uppercase">{currentPlan.id ? "Edit Plan" : "Create New Plan"}</DialogTitle>
+                        <DialogDescription className="uppercase text-xs tracking-wider">
+                            Configure subscription tiers. Sync Product ID with Play Console.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>Plan Name</Label>
+                                <Label className="text-xs uppercase font-bold text-muted-foreground">Plan Name</Label>
                                 <Input
-                                    placeholder="e.g. Monthly Premium"
+                                    placeholder="E.G. MONTHLY PREMIUM"
                                     value={currentPlan.name}
                                     onChange={(e) => setCurrentPlan({ ...currentPlan, name: e.target.value })}
+                                    className="rounded-none uppercase"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Google Product ID</Label>
+                                <Label className="text-xs uppercase font-bold text-muted-foreground">Google Product ID</Label>
                                 <Input
-                                    placeholder="e.g. vpn_premium_monthly"
+                                    placeholder="vpn_premium_monthly"
                                     value={currentPlan.googleProductId}
                                     onChange={(e) => setCurrentPlan({ ...currentPlan, googleProductId: e.target.value })}
+                                    className="rounded-none font-mono text-sm"
                                 />
                             </div>
                         </div>
 
                         <div className="grid grid-cols-3 gap-4">
                             <div className="space-y-2">
-                                <Label>Price</Label>
+                                <Label className="text-xs uppercase font-bold text-muted-foreground">Price</Label>
                                 <Input
                                     type="number"
                                     placeholder="9.99"
                                     value={currentPlan.price}
                                     onChange={(e) => setCurrentPlan({ ...currentPlan, price: Number(e.target.value) })}
+                                    className="rounded-none font-mono"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Currency</Label>
+                                <Label className="text-xs uppercase font-bold text-muted-foreground">Currency</Label>
                                 <Input
                                     placeholder="USD"
                                     value={currentPlan.currency}
                                     onChange={(e) => setCurrentPlan({ ...currentPlan, currency: e.target.value })}
+                                    className="rounded-none uppercase"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Interval</Label>
+                                <Label className="text-xs uppercase font-bold text-muted-foreground">Interval</Label>
                                 <Select
                                     value={currentPlan.interval}
                                     onValueChange={(val: any) => setCurrentPlan({ ...currentPlan, interval: val })}
                                 >
-                                    <SelectTrigger>
+                                    <SelectTrigger className="rounded-none border-border uppercase">
                                         <SelectValue />
                                     </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="week">Weekly</SelectItem>
-                                        <SelectItem value="month">Monthly</SelectItem>
-                                        <SelectItem value="year">Yearly</SelectItem>
+                                    <SelectContent className="rounded-none border-border">
+                                        <SelectItem value="week" className="uppercase">Weekly</SelectItem>
+                                        <SelectItem value="month" className="uppercase">Monthly</SelectItem>
+                                        <SelectItem value="year" className="uppercase">Yearly</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <Label>Features (One per line)</Label>
+                            <Label className="text-xs uppercase font-bold text-muted-foreground">Features (One per line)</Label>
                             <Textarea
                                 rows={5}
                                 placeholder="- High speed servers..."
                                 value={featuresInput}
                                 onChange={(e) => setFeaturesInput(e.target.value)}
+                                className="rounded-none border-border"
                             />
                         </div>
 
-                        <div className="flex items-center justify-between space-x-2 border p-3 rounded-md">
+                        <div className="flex items-center justify-between space-x-2 border border-border p-3 bg-muted/10">
                             <div className="flex flex-col space-y-1">
-                                <Label>Active Status</Label>
-                                <span className="text-xs text-muted-foreground">Visible in app</span>
+                                <Label className="text-xs uppercase font-bold">Active Status</Label>
+                                <span className="text-[10px] text-muted-foreground uppercase">Visible in app</span>
                             </div>
                             <Switch
                                 checked={currentPlan.isActive}
@@ -393,10 +384,10 @@ export default function SubscriptionsConfigPage() {
                             />
                         </div>
 
-                        <div className="flex items-center justify-between space-x-2 border p-3 rounded-md">
+                        <div className="flex items-center justify-between space-x-2 border border-border p-3 bg-muted/10">
                             <div className="flex flex-col space-y-1">
-                                <Label>Popular Badge</Label>
-                                <span className="text-xs text-muted-foreground">Highlight as "Best Value"</span>
+                                <Label className="text-xs uppercase font-bold">Popular Badge</Label>
+                                <span className="text-[10px] text-muted-foreground uppercase">Highlight as "Best Value"</span>
                             </div>
                             <Switch
                                 checked={currentPlan.popular}
@@ -405,26 +396,27 @@ export default function SubscriptionsConfigPage() {
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleSavePlan}>Save Changes</Button>
+                        <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="rounded-none">CANCEL</Button>
+                        <Button onClick={handleSavePlan} className="rounded-none">SAVE CHANGES</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
             {/* Delete Confirmation */}
             <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                <AlertDialogContent>
+                <AlertDialogContent className="rounded-none border-border">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            This will permanently delete the <strong>{currentPlan.name}</strong> plan.
-                            Make sure to also remove it from Google Play Console if needed.
+                        <AlertDialogTitle className="font-heading uppercase">CONFIRM DELETION</AlertDialogTitle>
+                        <AlertDialogDescription className="text-muted-foreground">
+                            Permanently delete <strong>{currentPlan.name}</strong>?
+                            <br/>
+                            <span className="text-xs uppercase font-bold text-destructive mt-2 block">Action cannot be undone. Remove from Google Play Console manually.</span>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleDeletePlan}>
-                            Delete Plan
+                        <AlertDialogCancel className="rounded-none">CANCEL</AlertDialogCancel>
+                        <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-none" onClick={handleDeletePlan}>
+                            DELETE PLAN
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

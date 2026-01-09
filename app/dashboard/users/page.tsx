@@ -60,7 +60,6 @@ import {
   CalendarIcon
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-// Removed direct import from user-service, using fetch now
 import { toast } from "sonner"
 import { useAuth } from "@/components/auth-provider"
 import { fetchWithAuth } from "@/lib/api-client"
@@ -68,7 +67,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar"
 import type { DateRange } from "react-day-picker"
 
-// Define UserData locally or import shared type
 export interface UserData {
   id: string
   uid?: string
@@ -159,19 +157,12 @@ export default function UsersPage() {
     const matchesStatus = statusFilter.length === 0 || statusFilter.includes(user.status)
     const matchesPlan = planFilter.length === 0 || planFilter.includes(user.plan)
     const matchesRole = roleFilter.length === 0 || roleFilter.includes(user.role)
-    // Removed excludeGuests from dependency array in effect, but logic is fine here.
-    // Guests check: provider === 'anonymous'
     const matchesGuest = !excludeGuests || user.provider !== "anonymous"
     
-    // Date range filter for registration date
     let matchesDate = true
     if (dateRange?.from && user.registrationDate && user.registrationDate !== "Unknown") {
       try {
-        // Parse user registration date - Date constructor handles most formats:
-        // "1/9/2026", "Jan 9, 2026", "2026-01-09", etc.
         const userDate = new Date(user.registrationDate)
-        
-        // Check if date is valid
         if (!isNaN(userDate.getTime())) {
           if (dateRange.to) {
             matchesDate = isWithinInterval(userDate, {
@@ -179,7 +170,6 @@ export default function UsersPage() {
               end: endOfDay(dateRange.to)
             })
           } else {
-            // Single date selected - match that specific day
             matchesDate = isWithinInterval(userDate, {
               start: startOfDay(dateRange.from),
               end: endOfDay(dateRange.from)
@@ -187,7 +177,7 @@ export default function UsersPage() {
           }
         }
       } catch {
-        matchesDate = true // If date parsing fails, include the user
+        matchesDate = true 
       }
     }
     
@@ -204,7 +194,6 @@ export default function UsersPage() {
     }
   }
 
-  // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1)
     setSelectedUids([]) // Clear selection when filters change
@@ -227,15 +216,15 @@ export default function UsersPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "active":
-        return "bg-blue-500/10 text-blue-500 border-blue-500/20"
+        return "bg-background text-foreground border-foreground font-bold"
       case "deleted":
-        return "bg-gray-500/10 text-gray-500 border-gray-500/20"
+        return "bg-muted text-muted-foreground border-transparent"
       case "premium":
-        return "bg-purple-500/10 text-purple-500 border-purple-500/20"
+        return "bg-primary text-primary-foreground border-primary font-bold"
       case "suspended":
-        return "bg-red-500/10 text-red-500 border-red-500/20"
+        return "bg-destructive text-destructive-foreground border-destructive font-bold"
       default:
-        return "bg-gray-500/10 text-gray-500"
+        return "bg-muted text-muted-foreground border-transparent"
     }
   }
 
@@ -376,89 +365,79 @@ export default function UsersPage() {
   return (
     <>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
-          <p className="text-muted-foreground mt-2">Manage user accounts and subscriptions</p>
+        <div className="flex flex-col gap-1">
+          <h1 className="text-3xl font-heading font-bold uppercase tracking-tight">User Management</h1>
+          <p className="text-muted-foreground font-sans text-sm">Control account access and privileges.</p>
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <Card className="rounded-[2rem] border-0 shadow-sm bg-card/50 backdrop-blur-xl dark:border dark:border-white/10 dark:bg-white/5">
+          <Card className="rounded-none border shadow-none bg-card hover:border-foreground transition-colors">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground font-medium">Total Users</p>
-                  <p className="text-3xl font-bold tracking-tight">{stats.total}</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Users</p>
+                  <p className="text-2xl font-bold tracking-tight mt-1">{stats.total}</p>
                 </div>
-                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center shadow-inner">
-                  <Users className="h-6 w-6 text-primary" />
-                </div>
+                <Users className="h-5 w-5 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
-          <Card className="rounded-[2rem] border-0 shadow-sm bg-card/50 backdrop-blur-xl dark:border dark:border-white/10 dark:bg-white/5">
+          <Card className="rounded-none border shadow-none bg-card hover:border-foreground transition-colors">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground font-medium">Active</p>
-                  <p className="text-3xl font-bold tracking-tight">{stats.active}</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Active</p>
+                  <p className="text-2xl font-bold tracking-tight mt-1">{stats.active}</p>
                 </div>
-                <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center shadow-inner">
-                  <CheckCircle2 className="h-6 w-6 text-blue-500" />
-                </div>
+                <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
-          <Card className="rounded-[2rem] border-0 shadow-sm bg-card/50 backdrop-blur-xl dark:border dark:border-white/10 dark:bg-white/5">
+          <Card className="rounded-none border shadow-none bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground font-medium">Premium</p>
-                  <p className="text-3xl font-bold tracking-tight">{stats.premium}</p>
+                  <p className="text-xs font-bold uppercase tracking-wider opacity-80">Premium</p>
+                  <p className="text-2xl font-bold tracking-tight mt-1">{stats.premium}</p>
                 </div>
-                <div className="w-12 h-12 bg-purple-500/10 rounded-2xl flex items-center justify-center shadow-inner">
-                  <Crown className="h-6 w-6 text-purple-500" />
-                </div>
+                <Crown className="h-5 w-5 opacity-80" />
               </div>
             </CardContent>
           </Card>
-          <Card className="rounded-[2rem] border-0 shadow-sm bg-card/50 backdrop-blur-xl dark:border dark:border-white/10 dark:bg-white/5">
+          <Card className="rounded-none border shadow-none bg-card hover:border-foreground transition-colors">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground font-medium">Deleted</p>
-                  <p className="text-3xl font-bold tracking-tight">{stats.deleted}</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Deleted</p>
+                  <p className="text-2xl font-bold tracking-tight mt-1">{stats.deleted}</p>
                 </div>
-                <div className="w-12 h-12 bg-gray-500/10 rounded-2xl flex items-center justify-center shadow-inner">
-                  <Trash2 className="h-6 w-6 text-gray-500" />
-                </div>
+                <Trash2 className="h-5 w-5 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
-          <Card className="rounded-[2rem] border-0 shadow-sm bg-card/50 backdrop-blur-xl dark:border dark:border-white/10 dark:bg-white/5">
+           <Card className="rounded-none border shadow-none bg-card hover:border-foreground transition-colors">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground font-medium">Suspended</p>
-                  <p className="text-3xl font-bold tracking-tight">{stats.suspended}</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Suspended</p>
+                  <p className="text-2xl font-bold tracking-tight mt-1">{stats.suspended}</p>
                 </div>
-                <div className="w-12 h-12 bg-red-500/10 rounded-2xl flex items-center justify-center shadow-inner">
-                  <Ban className="h-6 w-6 text-red-500" />
-                </div>
+                <Ban className="h-5 w-5 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <Card className="rounded-[2rem] border-0 shadow-sm bg-card/50 backdrop-blur-xl">
-          <CardHeader className="pb-4">
+        <Card className="rounded-none border shadow-none bg-card">
+          <CardHeader className="pb-4 border-b border-border">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div className="flex-1 flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1 max-w-sm">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search users..."
-                    className="pl-9 rounded-xl border-0 bg-secondary/50 focus-visible:ring-1 focus-visible:ring-primary/20"
+                    placeholder="SEARCH USERS..."
+                    className="pl-9 bg-background uppercase text-xs font-medium"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -466,32 +445,13 @@ export default function UsersPage() {
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="gap-2 border-dashed">
+                    <Button variant="outline" className="gap-2 border-dashed bg-background">
                       <Filter className="h-4 w-4" />
-                      Filters
+                      FILTERS
                       {(statusFilter.length > 0 || planFilter.length > 0 || roleFilter.length > 0) && (
-                        <Badge variant="secondary" className="ml-1 rounded-sm px-1 font-normal lg:hidden">
+                        <Badge variant="secondary" className="ml-1 rounded-none px-1 h-5 text-[10px]">
                           {statusFilter.length + planFilter.length + roleFilter.length}
                         </Badge>
-                      )}
-                      {(statusFilter.length > 0 || planFilter.length > 0 || roleFilter.length > 0) && (
-                        <div className="hidden lg:flex gap-1 ml-1">
-                          {statusFilter.length > 0 && (
-                            <Badge variant="secondary" className="rounded-sm px-1 font-normal">
-                              {statusFilter.length} status
-                            </Badge>
-                          )}
-                          {planFilter.length > 0 && (
-                            <Badge variant="secondary" className="rounded-sm px-1 font-normal">
-                              {planFilter.length} plan
-                            </Badge>
-                          )}
-                          {roleFilter.length > 0 && (
-                            <Badge variant="secondary" className="rounded-sm px-1 font-normal">
-                              {roleFilter.length} role
-                            </Badge>
-                          )}
-                        </div>
                       )}
                     </Button>
                   </DropdownMenuTrigger>
@@ -503,139 +463,74 @@ export default function UsersPage() {
                       <DropdownMenuSubTrigger>
                         <Activity className="mr-2 h-4 w-4" />
                         <span>Status</span>
-                        {statusFilter.length > 0 && (
-                          <span className="ml-auto mr-2 flex h-2 w-2 rounded-full bg-primary" />
-                        )}
                       </DropdownMenuSubTrigger>
                       <DropdownMenuPortal>
                         <DropdownMenuSubContent className="p-0">
-                          <DropdownMenuCheckboxItem
-                            checked={statusFilter.includes("active")}
-                            onCheckedChange={(checked) =>
-                              setStatusFilter(
-                                checked ? [...statusFilter, "active"] : statusFilter.filter((s) => s !== "active"),
-                              )
-                            }
-                          >
-                            <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
-                            Active
-                          </DropdownMenuCheckboxItem>
-                          <DropdownMenuCheckboxItem
-                            checked={statusFilter.includes("suspended")}
-                            onCheckedChange={(checked) =>
-                              setStatusFilter(
-                                checked ? [...statusFilter, "suspended"] : statusFilter.filter((s) => s !== "suspended"),
-                              )
-                            }
-                          >
-                            <Ban className="mr-2 h-4 w-4 text-red-500" />
-                            Suspended
-                          </DropdownMenuCheckboxItem>
-                          <DropdownMenuCheckboxItem
-                            checked={statusFilter.includes("deleted")}
-                            onCheckedChange={(checked) =>
-                              setStatusFilter(
-                                checked ? [...statusFilter, "deleted"] : statusFilter.filter((s) => s !== "deleted"),
-                              )
-                            }
-                          >
-                            <Trash2 className="mr-2 h-4 w-4 text-gray-500" />
-                            Deleted
-                          </DropdownMenuCheckboxItem>
+                          {["active", "suspended", "deleted"].map(s => (
+                             <DropdownMenuCheckboxItem
+                                key={s}
+                                checked={statusFilter.includes(s)}
+                                onCheckedChange={(checked) =>
+                                  setStatusFilter(
+                                    checked ? [...statusFilter, s] : statusFilter.filter((f) => f !== s),
+                                  )
+                                }
+                                className="uppercase text-xs"
+                              >
+                                {s}
+                              </DropdownMenuCheckboxItem>
+                          ))}
                         </DropdownMenuSubContent>
                       </DropdownMenuPortal>
                     </DropdownMenuSub>
-
-                    <DropdownMenuSub>
+                    
+                     <DropdownMenuSub>
                       <DropdownMenuSubTrigger>
                         <Zap className="mr-2 h-4 w-4" />
                         <span>Plan</span>
-                        {planFilter.length > 0 && (
-                          <span className="ml-auto mr-2 flex h-2 w-2 rounded-full bg-primary" />
-                        )}
                       </DropdownMenuSubTrigger>
                       <DropdownMenuPortal>
                         <DropdownMenuSubContent className="p-0">
-                          <DropdownMenuCheckboxItem
-                            checked={planFilter.includes("free")}
-                            onCheckedChange={(checked) =>
-                              setPlanFilter(checked ? [...planFilter, "free"] : planFilter.filter((t) => t !== "free"))
-                            }
-                          >
-                            <Zap className="mr-2 h-4 w-4 text-blue-500" />
-                            Free
-                          </DropdownMenuCheckboxItem>
-                          <DropdownMenuCheckboxItem
-                            checked={planFilter.includes("premium")}
-                            onCheckedChange={(checked) =>
-                              setPlanFilter(checked ? [...planFilter, "premium"] : planFilter.filter((t) => t !== "premium"))
-                            }
-                          >
-                            <Crown className="mr-2 h-4 w-4 text-purple-500" />
-                            Premium
-                          </DropdownMenuCheckboxItem>
+                          {["free", "premium"].map(p => (
+                             <DropdownMenuCheckboxItem
+                                key={p}
+                                checked={planFilter.includes(p)}
+                                onCheckedChange={(checked) =>
+                                  setPlanFilter(
+                                    checked ? [...planFilter, p] : planFilter.filter((f) => f !== p),
+                                  )
+                                }
+                                className="uppercase text-xs"
+                              >
+                                {p}
+                              </DropdownMenuCheckboxItem>
+                          ))}
                         </DropdownMenuSubContent>
                       </DropdownMenuPortal>
                     </DropdownMenuSub>
 
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger>
-                        <Shield className="mr-2 h-4 w-4" />
-                        <span>Role</span>
-                        {roleFilter.length > 0 && (
-                          <span className="ml-auto mr-2 flex h-2 w-2 rounded-full bg-primary" />
-                        )}
-                      </DropdownMenuSubTrigger>
-                      <DropdownMenuPortal>
-                        <DropdownMenuSubContent className="p-0">
-                          <DropdownMenuCheckboxItem
-                            checked={roleFilter.includes("admin")}
-                            onCheckedChange={(checked) =>
-                              setRoleFilter(checked ? [...roleFilter, "admin"] : roleFilter.filter((r) => r !== "admin"))
-                            }
-                          >
-                            <Shield className="mr-2 h-4 w-4 text-red-500" />
-                            Admin
-                          </DropdownMenuCheckboxItem>
-                          <DropdownMenuCheckboxItem
-                            checked={roleFilter.includes("user")}
-                            onCheckedChange={(checked) =>
-                              setRoleFilter(checked ? [...roleFilter, "user"] : roleFilter.filter((r) => r !== "user"))
-                            }
-                          >
-                            <UserCog className="mr-2 h-4 w-4 text-gray-500" />
-                            User
-                          </DropdownMenuCheckboxItem>
-                        </DropdownMenuSubContent>
-                      </DropdownMenuPortal>
-                    </DropdownMenuSub>
-
-                    {(statusFilter.length > 0 || planFilter.length > 0 || roleFilter.length > 0) && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="justify-center text-center font-medium"
-                          onClick={() => {
-                            setStatusFilter([])
-                            setPlanFilter([])
-                            setRoleFilter([])
-                          }}
-                        >
-                          Clear Filters
-                        </DropdownMenuItem>
-                      </>
-                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="justify-center text-center font-medium uppercase text-xs"
+                      onClick={() => {
+                        setStatusFilter([])
+                        setPlanFilter([])
+                        setRoleFilter([])
+                      }}
+                    >
+                      Clear Filters
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
 
                 <Button
                   variant={excludeGuests ? "secondary" : "outline"}
                   onClick={() => setExcludeGuests(!excludeGuests)}
-                  className="gap-2 border-dashed"
+                  className="gap-2 border-dashed bg-background"
                 >
                   <Users className="h-4 w-4" />
-                  Exclude Guests
-                  {excludeGuests && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                  No Guests
+                  {excludeGuests && <CheckCircle2 className="h-4 w-4" />}
                 </Button>
 
                 <Popover>
@@ -643,7 +538,7 @@ export default function UsersPage() {
                     <Button
                       variant={dateRange?.from ? "secondary" : "outline"}
                       className={cn(
-                        "gap-2 border-dashed min-w-[200px] justify-start text-left font-normal",
+                        "gap-2 border-dashed min-w-[200px] justify-start text-left font-normal bg-background uppercase text-xs",
                         !dateRange?.from && "text-muted-foreground"
                       )}
                     >
@@ -657,7 +552,7 @@ export default function UsersPage() {
                           format(dateRange.from, "LLL dd, y")
                         )
                       ) : (
-                        "Registration Date"
+                        "Date Range"
                       )}
                     </Button>
                   </PopoverTrigger>
@@ -670,17 +565,6 @@ export default function UsersPage() {
                       onSelect={setDateRange}
                       numberOfMonths={2}
                     />
-                    {dateRange?.from && (
-                      <div className="p-3 border-t">
-                        <Button
-                          variant="ghost"
-                          className="w-full"
-                          onClick={() => setDateRange(undefined)}
-                        >
-                          Clear Date Filter
-                        </Button>
-                      </div>
-                    )}
                   </PopoverContent>
                 </Popover>
               </div>
@@ -689,54 +573,50 @@ export default function UsersPage() {
                 {selectedUids.length > 0 && (
                   <Button
                     variant="destructive"
-                    className="gap-2 rounded-xl"
+                    className="gap-2 rounded-none"
                     onClick={() => openActionDialog(null, "delete")}
                   >
                     <Trash2 className="h-4 w-4" />
                     Delete ({selectedUids.length})
                   </Button>
                 )}
-                <Button variant="outline" className="gap-2 bg-transparent rounded-xl border-dashed" onClick={() => loadUsers(true)}>
+                <Button variant="outline" className="gap-2 bg-transparent rounded-none border-dashed" onClick={() => loadUsers(true)}>
                   <RefreshCw className="h-4 w-4" />
-                  Refresh
                 </Button>
-                <Button variant="outline" className="gap-2 bg-transparent rounded-xl border-dashed">
+                <Button variant="outline" className="gap-2 bg-transparent rounded-none border-dashed">
                   <Download className="h-4 w-4" />
-                  Export
                 </Button>
               </div>
             </div>
           </CardHeader>
 
-          <CardContent>
+          <CardContent className="p-0">
             {!loading && filteredUsers.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-64 text-center">
-                <Users className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No users found</h3>
+                <Users className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
+                <h3 className="text-lg font-heading uppercase mb-2">No users found</h3>
                 <p className="text-sm text-muted-foreground">
-                  {searchQuery || statusFilter.length > 0 || planFilter.length > 0
-                    ? "Try adjusting your filters"
-                    : "Users will appear here once they register"}
+                   Adjust filters to see results.
                 </p>
               </div>
             ) : (
-              <div className="rounded-2xl border overflow-hidden bg-background/50">
+              <div className="border-t-0">
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[50px]">
+                  <TableHeader className="bg-muted/30">
+                    <TableRow className="hover:bg-transparent border-b border-border">
+                      <TableHead className="w-[50px] pl-4">
                         <Checkbox
                           checked={selectedUids.length === paginatedUsers.length && paginatedUsers.length > 0}
                           onCheckedChange={toggleSelectAll}
+                          className="rounded-none border-foreground"
                         />
                       </TableHead>
-                      <TableHead>User</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Plan</TableHead>
-                      <TableHead>Registered</TableHead>
-                      <TableHead>Last Login</TableHead>
-                      <TableHead>Usage</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="uppercase text-xs font-bold tracking-wider text-muted-foreground">User</TableHead>
+                      <TableHead className="uppercase text-xs font-bold tracking-wider text-muted-foreground">Status</TableHead>
+                      <TableHead className="uppercase text-xs font-bold tracking-wider text-muted-foreground">Plan</TableHead>
+                      <TableHead className="uppercase text-xs font-bold tracking-wider text-muted-foreground">Registered</TableHead>
+                      <TableHead className="uppercase text-xs font-bold tracking-wider text-muted-foreground">Usage</TableHead>
+                      <TableHead className="text-right uppercase text-xs font-bold tracking-wider text-muted-foreground pr-4">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -746,7 +626,7 @@ export default function UsersPage() {
                           <TableCell><Skeleton className="h-4 w-4" /></TableCell>
                           <TableCell>
                             <div className="flex items-center gap-3">
-                              <Skeleton className="h-8 w-8 rounded-full" />
+                              <Skeleton className="h-8 w-8 rounded-none" />
                               <div className="space-y-1">
                                 <Skeleton className="h-3 w-24" />
                                 <Skeleton className="h-3 w-32" />
@@ -756,58 +636,49 @@ export default function UsersPage() {
                           <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                           <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                           <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-28" /></TableCell>
                           <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                          <TableCell><Skeleton className="h-8 w-8 rounded-full ml-auto" /></TableCell>
+                          <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                         </TableRow>
                       ))
                     ) : (
                       paginatedUsers.map((user, index) => (
-                        <TableRow key={user.uid || user.id || index} className={cn(selectedUids.includes(user.uid || user.id) && "bg-muted/50")}>
-                          <TableCell>
+                        <TableRow key={user.uid || user.id || index} className={cn("group border-b border-border hover:bg-muted/30", selectedUids.includes(user.uid || user.id) && "bg-muted/50")}>
+                          <TableCell className="pl-4">
                             <Checkbox
                               checked={selectedUids.includes(user.uid || user.id)}
                               onCheckedChange={() => toggleSelectUser(user.uid || user.id)}
+                              className="rounded-none border-foreground"
                             />
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-3">
-                              <Avatar>
+                              <Avatar className="rounded-none border border-border h-8 w-8 text-xs">
                                 <AvatarImage src={user.avatar || `https://api.dicebear.com/9.x/notionists/svg?seed=${user.name}`} />
-                                <AvatarFallback>
-                                  {(user.name || "User")
-                                    .split(" ")
-                                    .map((n) => n[0])
-                                    .join("")}
+                                <AvatarFallback className="rounded-none bg-secondary font-bold">
+                                  {(user.name || "U")[0]}
                                 </AvatarFallback>
                               </Avatar>
                               <div>
-                                <div className="font-semibold flex items-center gap-2">
+                                <div className="font-semibold text-sm flex items-center gap-2">
                                   {user.name}
-                                  {user.role === "admin" && <Badge variant="secondary" className="text-[10px] h-4">Admin</Badge>}
+                                  {user.role === "admin" && <Badge variant="secondary" className="text-[10px] h-4 rounded-none px-1">ADMIN</Badge>}
                                 </div>
-                                <div className="text-xs text-muted-foreground">{user.email}</div>
-                                <div className="text-[10px] text-muted-foreground uppercase">{user.provider}</div>
+                                <div className="text-xs text-muted-foreground font-mono">{user.email}</div>
                               </div>
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className={cn("gap-1", getStatusColor(user.status))}>
-                              {getStatusIcon(user.status)}
-                              {user.status}
+                             <Badge variant="outline" className={cn("rounded-none px-1.5 py-0.5 text-[10px] uppercase tracking-wider", getStatusColor(user.status))}>
+                                {user.status}
+                             </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={user.plan === "premium" ? "default" : "secondary"} className="rounded-none px-1.5 py-0.5 text-[10px] uppercase">
+                               {user.plan}
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            {user.plan === "premium" ? (
-                              <Badge className="bg-gradient-to-r from-purple-500 to-pink-500">Premium</Badge>
-                            ) : user.plan === "basic" ? (
-                              <Badge variant="secondary">Basic</Badge>
-                            ) : (
-                              <Badge variant="outline">Free</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm">
+                            <div className="text-xs font-mono text-muted-foreground">
                               {(() => {
                                 if (!user.registrationDate) return "Unknown"
                                 const date = new Date(user.registrationDate)
@@ -816,35 +687,25 @@ export default function UsersPage() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="text-sm">
-                              {(() => {
-                                if (!user.lastLogin) return "Never"
-                                const date = new Date(user.lastLogin)
-                                return isNaN(date.getTime()) ? "Never" : format(date, "MMM d, yyyy")
-                              })()}
-                            </div>
-                          </TableCell>
-                          <TableCell>
                             <div className="text-xs">
-                              <div>{user.totalConnectionTime}</div>
-                              <div className="text-muted-foreground">{user.dataTransferred}</div>
+                              <div className="font-medium">{user.totalConnectionTime || "0h 0m"}</div>
+                              <div className="text-[10px] text-muted-foreground uppercase">{user.dataTransferred || "0 MB"}</div>
                             </div>
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right pr-4">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <MoreVertical className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
+                              <DropdownMenuContent align="end" className="rounded-none border-border">
                                 <DropdownMenuItem onClick={() => openDetailDialog(user)}>
                                   <Eye className="mr-2 h-4 w-4" />
                                   View Details
                                 </DropdownMenuItem>
 
-                                {/* Admin Actions Only - Checked via role */}
-                                {/* @ts-ignore - Check for role existence */}
+                                {/* @ts-ignore */}
                                 {currentUser?.role === "admin" && (
                                   <>
                                     <DropdownMenuItem onClick={() => openActionDialog(user, "send_email")}>
@@ -890,7 +751,7 @@ export default function UsersPage() {
                                     )}
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
-                                      className="text-destructive"
+                                      className="text-destructive focus:text-destructive"
                                       onClick={() => openActionDialog(user, "delete")}
                                     >
                                       <Trash2 className="mr-2 h-4 w-4" />
@@ -910,9 +771,9 @@ export default function UsersPage() {
             )}
           </CardContent>
           {filteredUsers.length > 0 && (
-            <div className="flex items-center justify-between p-6 pt-0">
-              <p className="text-sm text-muted-foreground">
-                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredUsers.length)} of {filteredUsers.length} users
+            <div className="flex items-center justify-between p-4 border-t border-border bg-muted/10">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                Showing {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, filteredUsers.length)} of {filteredUsers.length}
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -920,12 +781,13 @@ export default function UsersPage() {
                   size="sm"
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
+                  className="h-8 rounded-none px-2"
                 >
-                  Previous
+                  Prev
                 </Button>
                 <div className="flex items-center gap-1">
-                  <span className="text-sm font-medium mx-2">
-                    Page {currentPage} of {totalPages}
+                  <span className="text-xs font-mono mx-2">
+                    {currentPage} / {totalPages}
                   </span>
                 </div>
                 <Button
@@ -933,6 +795,7 @@ export default function UsersPage() {
                   size="sm"
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
+                   className="h-8 rounded-none px-2"
                 >
                   Next
                 </Button>
@@ -943,79 +806,74 @@ export default function UsersPage() {
 
         {/* User Detail Dialog */}
         <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto rounded-none border border-border sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>User Details</DialogTitle>
-              <DialogDescription>Comprehensive user account information</DialogDescription>
+              <DialogTitle className="font-heading uppercase tracking-tight text-xl">User Details</DialogTitle>
+              <DialogDescription>Full account profile and metadata.</DialogDescription>
             </DialogHeader>
             {selectedUser && (
               <Tabs defaultValue="account" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="account">Account</TabsTrigger>
-                  <TabsTrigger value="usage">Usage</TabsTrigger>
-                  <TabsTrigger value="history">History</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-3 rounded-none bg-muted/50 p-1">
+                  <TabsTrigger value="account" className="rounded-none data-[state=active]:bg-background data-[state=active]:shadow-none data-[state=active]:border border-border">Account</TabsTrigger>
+                  <TabsTrigger value="usage" className="rounded-none data-[state=active]:bg-background data-[state=active]:shadow-none data-[state=active]:border border-border">Usage</TabsTrigger>
+                  <TabsTrigger value="history" className="rounded-none data-[state=active]:bg-background data-[state=active]:shadow-none data-[state=active]:border border-border">History</TabsTrigger>
                 </TabsList>
-                <TabsContent value="account" className="space-y-4">
-                  <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
-                    <Avatar className="h-16 w-16">
+                <TabsContent value="account" className="space-y-4 pt-4">
+                  <div className="flex items-center gap-4 p-4 border border-border bg-muted/10">
+                    <Avatar className="h-16 w-16 rounded-none border border-border">
                       <AvatarImage src={selectedUser.avatar || `https://api.dicebear.com/9.x/notionists/svg?seed=${selectedUser.name}`} />
-                      <AvatarFallback className="text-xl">
-                        {(selectedUser.name || "User")
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
+                      <AvatarFallback className="text-xl font-bold bg-background rounded-none">
+                        {(selectedUser.name || "U")[0]}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
-                      <h3 className="text-xl font-semibold">{selectedUser.name}</h3>
-                      <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
+                      <h3 className="text-xl font-heading font-bold uppercase">{selectedUser.name}</h3>
+                      <p className="text-sm text-muted-foreground font-mono">{selectedUser.email}</p>
                     </div>
-                    <Badge variant="outline" className={getStatusColor(selectedUser.status)}>
+                    <Badge variant="outline" className={cn("rounded-none px-2 py-1 uppercase", getStatusColor(selectedUser.status))}>
                       {selectedUser.status}
                     </Badge>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Subscription Plan</Label>
-                      <div className="font-semibold capitalize">{selectedUser.plan}</div>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Registered</Label>
-                      <div className="font-semibold">{selectedUser.registrationDate}</div>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Last Login</Label>
-                      <div className="font-semibold">{selectedUser.lastLogin}</div>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Device Count</Label>
-                      <div className="font-semibold">{selectedUser.deviceCount} devices</div>
-                    </div>
+                     <div className="p-3 border border-border bg-card">
+                       <Label className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Subscription</Label>
+                       <div className="font-bold uppercase tracking-tight">{selectedUser.plan}</div>
+                     </div>
+                     <div className="p-3 border border-border bg-card">
+                       <Label className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Registered</Label>
+                       <div className="font-mono text-sm">{selectedUser.registrationDate}</div>
+                     </div>
+                     <div className="p-3 border border-border bg-card">
+                       <Label className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Last Login</Label>
+                       <div className="font-mono text-sm">{selectedUser.lastLogin}</div>
+                     </div>
+                     <div className="p-3 border border-border bg-card">
+                       <Label className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Devices</Label>
+                       <div className="font-bold">{selectedUser.deviceCount} <span className="text-muted-foreground font-normal text-xs">connected</span></div>
+                     </div>
                   </div>
                 </TabsContent>
-                <TabsContent value="usage" className="space-y-4">
+                <TabsContent value="usage" className="space-y-4 pt-4">
                   <div className="grid grid-cols-2 gap-4">
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="text-center">
-                          <p className="text-sm text-muted-foreground mb-2">Total Connection Time</p>
-                          <p className="text-3xl font-bold">{selectedUser.totalConnectionTime}</p>
-                        </div>
+                    <Card className="rounded-none border shadow-none">
+                      <CardContent className="pt-6 text-center">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Total Time</p>
+                          <p className="text-2xl font-bold">{selectedUser.totalConnectionTime}</p>
                       </CardContent>
                     </Card>
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="text-center">
-                          <p className="text-sm text-muted-foreground mb-2">Data Transferred</p>
-                          <p className="text-3xl font-bold">{selectedUser.dataTransferred}</p>
-                        </div>
+                    <Card className="rounded-none border shadow-none">
+                      <CardContent className="pt-6 text-center">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Data Transferred</p>
+                          <p className="text-2xl font-bold">{selectedUser.dataTransferred}</p>
                       </CardContent>
                     </Card>
                   </div>
                 </TabsContent>
-                <TabsContent value="history" className="space-y-4">
-                  <p className="text-sm text-muted-foreground">Connection history and activity logs would appear here.</p>
+                <TabsContent value="history" className="space-y-4 pt-4">
+                  <div className="border border-dashed border-border p-8 text-center bg-muted/10">
+                    <p className="text-sm text-muted-foreground">Activity logs unavailable.</p>
+                  </div>
                 </TabsContent>
               </Tabs>
             )}
@@ -1024,24 +882,22 @@ export default function UsersPage() {
 
         {/* Action Dialog */}
         <Dialog open={showActionDialog} onOpenChange={setShowActionDialog}>
-          <DialogContent>
+          <DialogContent className="rounded-none border border-border sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>
-                {actionType === "suspend" && "Suspend User Account"}
-                {actionType === "grant" && "Grant Premium Access"}
-                {actionType === "delete" && "Delete User Account"}
-                {actionType === "revoke_premium" && "Remove Premium Access"}
+              <DialogTitle className="font-heading uppercase tracking-tight">
+                {actionType === "suspend" && "Suspend Account"}
+                {actionType === "grant" && "Grant Premium"}
+                {actionType === "delete" && "Delete Account"}
+                {actionType === "revoke_premium" && "Revoke Premium"}
+                {actionType === "send_email" && "Send Email"}
+                {actionType === "make_admin" && "Grant Admin Access"}
+                {actionType === "remove_admin" && "Revoke Admin Access"}
               </DialogTitle>
-              <DialogDescription>
-                {actionType === "suspend" &&
-                  "This will prevent the user from accessing their account. You can unsuspend them later."}
-                {actionType === "grant" && "Grant this user complimentary premium access for a specified duration."}
-                {actionType === "delete" && "This action is irreversible and will permanently delete all user data."}
-                {actionType === "make_admin" && "This user will have full access to the dashboard."}
-                {actionType === "remove_admin" && "This user will lose admin privileges."}
-                {actionType === "unsuspend" && "This user will be able to access the app again."}
-                {actionType === "revoke_premium" && "This will revert the user to the free tier immediately."}
-                {actionType === "send_email" && "Send a custom email notification to this user."}
+              <DialogDescription className="text-xs uppercase tracking-wider font-bold text-muted-foreground mt-2">
+                {actionType === "suspend" && "Prevent user from accessing services."}
+                {actionType === "grant" && "Grant complimentary premium access."}
+                {actionType === "delete" && "Permanently delete user data."}
+                {actionType === "send_email" && "Send a personalized notification."}
               </DialogDescription>
             </DialogHeader>
 
@@ -1049,20 +905,21 @@ export default function UsersPage() {
               {actionType === "send_email" && (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="subject">Subject</Label>
+                    <Label htmlFor="subject" className="text-xs uppercase">Subject</Label>
                     <Input
                       id="subject"
-                      placeholder="Enter email subject"
+                      placeholder="Email Subject"
+                      className="rounded-none bg-muted/20"
                       value={emailForm.subject}
                       onChange={(e) => setEmailForm({ ...emailForm, subject: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="message">Message</Label>
+                    <Label htmlFor="message" className="text-xs uppercase">Message</Label>
                     <Textarea
                       id="message"
-                      placeholder="Enter your message here..."
-                      className="min-h-[150px]"
+                      placeholder="Type your message..."
+                      className="min-h-[150px] rounded-none bg-muted/20"
                       value={emailForm.message}
                       onChange={(e) => setEmailForm({ ...emailForm, message: e.target.value })}
                     />
@@ -1071,75 +928,54 @@ export default function UsersPage() {
               )}
               {actionType === "grant" && (
                 <div className="space-y-2">
-                  <Label htmlFor="duration">Duration (days)</Label>
+                  <Label htmlFor="duration" className="text-xs uppercase">Duration (days)</Label>
                   <Input
                     id="duration"
                     type="number"
                     value={actionForm.duration}
                     onChange={(e) => setActionForm({ ...actionForm, duration: e.target.value })}
-                  />
-                </div>
-              )}
-
-              {(actionType === "suspend" || actionType === "grant") && (
-                <div className="space-y-2">
-                  <Label htmlFor="reason">Reason / Notes</Label>
-                  <Textarea
-                    id="reason"
-                    placeholder="Enter reason for this action..."
-                    value={actionForm.reason}
-                    onChange={(e) => setActionForm({ ...actionForm, reason: e.target.value })}
+                    className="rounded-none"
                   />
                 </div>
               )}
 
               {actionType === "delete" && (selectedUser || selectedUids.length > 0) && (
                 <div className="space-y-4">
-                  <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
-                    <p className="text-sm text-destructive font-semibold mb-2">Warning: This cannot be undone</p>
+                  <div className="bg-destructive/10 border border-destructive/20 p-4">
+                    <p className="text-sm text-destructive font-bold uppercase mb-2">Irreversible Action</p>
                     <p className="text-sm text-muted-foreground">
                       {selectedUids.length > 0 ? (
-                        <>Permanent deletion of <strong>{selectedUids.length}</strong> accounts.</>
+                        <>You are deleting <strong>{selectedUids.length}</strong> accounts.</>
                       ) : (
-                        <>Permanent deletion of <strong>{selectedUser?.name}</strong>'s account.</>
+                        <>You are deleting <strong>{selectedUser?.name}</strong>.</>
                       )}
                     </p>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Please type <code className="bg-background px-1 py-0.5 rounded">{selectedUids.length > 0 ? "DELETE ALL" : selectedUser?.email}</code> to confirm.
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="confirm">Confirmation</Label>
-                    <Input
-                      id="confirm"
-                      placeholder="Type to confirm..."
-                      value={confirmInput}
-                      onChange={(e) => setConfirmInput(e.target.value)}
-                      className="border-destructive/20 focus-visible:ring-destructive"
-                    />
+                    <div className="mt-4">
+                        <Label htmlFor="confirm" className="text-xs uppercase block mb-2">Type "{selectedUids.length > 0 ? "DELETE ALL" : selectedUser?.email}" to confirm</Label>
+                        <Input
+                          id="confirm"
+                          placeholder="CONFIRMATION..."
+                          value={confirmInput}
+                          onChange={(e) => setConfirmInput(e.target.value)}
+                          className="border-destructive/50 focus-visible:ring-destructive rounded-none bg-background"
+                        />
+                    </div>
                   </div>
                 </div>
               )}
             </div>
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowActionDialog(false)}>
+            <DialogFooter className="gap-2 sm:justify-between">
+              <Button variant="outline" onClick={() => setShowActionDialog(false)} className="rounded-none flex-1">
                 Cancel
               </Button>
               <Button
                 variant={actionType === "delete" ? "destructive" : "default"}
                 onClick={handleAction}
                 disabled={isActionProcessing || (actionType === "delete" && confirmInput !== (selectedUids.length > 0 ? "DELETE ALL" : selectedUser?.email))}
+                className="rounded-none flex-1"
               >
-                {/* {isActionProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} */}
-                {actionType === "suspend" && "Suspend Account"}
-                {actionType === "unsuspend" && "Unsuspend Account"}
-                {actionType === "grant" && "Grant Premium"}
-                {actionType === "delete" && "Delete Account"}
-                {actionType === "make_admin" && "Make Admin"}
-                {actionType === "remove_admin" && "Remove Admin"}
-                {actionType === "revoke_premium" && "Remove Premium"}
-                {actionType === "send_email" && "Send Email"}
+                Confirm Action
               </Button>
             </DialogFooter>
           </DialogContent>

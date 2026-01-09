@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { User, Mail, Phone, MapPin, Shield, Key, Smartphone, Copy, Check, Camera, Loader2 } from "lucide-react"
+import { User, Mail, Phone, MapPin, Shield, Key, Smartphone, Copy, Check, Camera, Loader2, Save } from "lucide-react"
 
 import { useAuth } from "@/components/auth-provider"
 import { toast } from "sonner"
@@ -59,13 +58,18 @@ export default function ProfilePage() {
   }, [user])
 
   const loadActivity = async () => {
-    const logs = await getRecentActivity()
-    setActivityLogs(logs)
+    try {
+        const logs = await getRecentActivity()
+        setActivityLogs(logs || [])
+    } catch (error) {
+        console.error("Failed to load activity", error)
+    }
   }
 
   const handleCopyBackupCode = () => {
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+    toast.success("Copied to clipboard")
   }
 
   const handleProfileUpdate = async () => {
@@ -115,7 +119,7 @@ export default function ProfilePage() {
       loadActivity()
     } catch (error: any) {
       console.error(error)
-      toast.error("Password Update Failed", {
+      toast.error("Update Failed", {
         description: error.message || "Please check your current password and try again.",
       })
     } finally {
@@ -127,311 +131,339 @@ export default function ProfilePage() {
 
   return (
 
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-8 max-w-5xl mx-auto pb-10">
       {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold gradient-text">Profile Settings</h1>
-        <p className="text-muted-foreground mt-1">Manage your account information and security settings</p>
+      <div className="border-b border-border pb-6">
+        <h1 className="text-4xl font-heading font-bold uppercase tracking-tight">Profile Settings</h1>
+        <div className="flex items-center gap-2 mt-2">
+             <div className="h-1 w-12 bg-primary"></div>
+            <p className="text-muted-foreground font-sans text-sm">Manage your account information and security settings.</p>
+        </div>
       </div>
 
-      {/* Profile Picture */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Profile Picture</CardTitle>
-          <CardDescription>Update your profile photo and display information</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-            <div className="relative">
-              <Avatar className="h-24 w-24">
-                <AvatarImage src={user?.photoURL || "/placeholder.svg?height=96&width=96"} />
-                <AvatarFallback className="text-2xl">
-                  {formData.firstName?.[0]}{formData.lastName?.[0] || formData.firstName?.[1]}
-                </AvatarFallback>
-              </Avatar>
-              <Button
-                size="icon"
-                className="absolute bottom-0 right-0 h-8 w-8 rounded-full shadow-lg"
-                variant="default"
-              >
-                <Camera className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="space-y-2 flex-1">
-              <div className="flex items-center gap-2">
-                <h3 className="text-xl font-semibold">{user?.displayName || "Admin User"}</h3>
-                <Badge variant="secondary" className="bg-primary/10 text-primary">
-                  <Shield className="h-3 w-3 mr-1" />
-                  Administrator
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">{user?.email || "admin@cloudvpn.com"}</p>
-              <div className="flex gap-2 pt-2">
-                <Button variant="outline" size="sm">
-                  Upload New Photo
-                </Button>
-                <Button variant="ghost" size="sm">
-                  Remove
-                </Button>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column: Profile Card & Activity */}
+          <div className="space-y-8 lg:col-span-1">
+               {/* Profile Picture Card */}
+              <Card className="rounded-none border-border shadow-none">
+                <CardHeader className="border-b border-border bg-muted/20">
+                    <CardTitle className="font-heading uppercase text-lg">Identity</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6 flex flex-col items-center text-center space-y-4">
+                    <div className="relative group">
+                      <Avatar className="h-32 w-32 rounded-none border-2 border-primary">
+                        <AvatarImage src={user?.photoURL || "/placeholder.svg?height=128&width=128"} className="object-cover"/>
+                        <AvatarFallback className="text-4xl rounded-none font-heading bg-background text-primary">
+                          {formData.firstName?.[0]}{formData.lastName?.[0] || formData.firstName?.[1]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <Button
+                        size="icon"
+                        className="absolute -bottom-2 -right-2 h-8 w-8 rounded-none border border-border shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                        variant="default"
+                      >
+                        <Camera className="h-4 w-4" />
+                      </Button>
+                    </div>
 
-      {/* Personal Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Personal Information</CardTitle>
-          <CardDescription>Update your basic account details</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="firstName">First Name</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="firstName"
-                  value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  className="pl-9"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lastName">Last Name</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="lastName"
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  className="pl-9"
-                />
-              </div>
-            </div>
-          </div>
+                    <div className="space-y-1 w-full">
+                        <h3 className="text-xl font-heading font-bold uppercase truncate">{user?.displayName || "Admin User"}</h3>
+                        <p className="text-xs font-mono text-muted-foreground truncate">{user?.email || "admin@cloudvpn.com"}</p>
+                    </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="email">Email Address</Label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input id="email" type="email" defaultValue={user?.email || ""} className="pl-9" disabled />
-            </div>
-          </div>
+                    <Badge variant="outline" className="rounded-none border-primary text-primary px-4 py-1 uppercase tracking-widest text-[10px] bg-primary/5">
+                        <Shield className="h-3 w-3 mr-2" />
+                        Administrator
+                    </Badge>
 
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone Number</Label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="+1 (555) 123-4567"
-                className="pl-9"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="location">Location</Label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="location"
-                placeholder="San Francisco, CA"
-                className="pl-9"
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="bio">Bio</Label>
-            <Textarea
-              id="bio"
-              placeholder="Tell us about yourself..."
-              rows={4}
-              value={formData.bio}
-              onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" onClick={() => window.location.reload()}>Cancel</Button>
-            <Button onClick={handleProfileUpdate} disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Changes
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Security Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Security</CardTitle>
-          <CardDescription>Manage your password and two-factor authentication</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Change Password */}
-          <div className="space-y-4">
-            <h4 className="font-semibold flex items-center gap-2">
-              <Key className="h-4 w-4" />
-              Change Password
-            </h4>
-            <div className="space-y-4 pl-6">
-              <div className="space-y-2">
-                <Label htmlFor="currentPassword">Current Password</Label>
-                <Input
-                  id="currentPassword"
-                  type="password"
-                  value={passwordData.current}
-                  onChange={(e) => setPasswordData({ ...passwordData, current: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">New Password</Label>
-                <Input
-                  id="newPassword"
-                  type="password"
-                  value={passwordData.new}
-                  onChange={(e) => setPasswordData({ ...passwordData, new: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={passwordData.confirm}
-                  onChange={(e) => setPasswordData({ ...passwordData, confirm: e.target.value })}
-                />
-              </div>
-              <Button size="sm" onClick={handlePasswordUpdate} disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Update Password
-              </Button>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Two-Factor Authentication */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-semibold flex items-center gap-2">
-                  <Smartphone className="h-4 w-4" />
-                  Two-Factor Authentication
-                </h4>
-                <p className="text-sm text-muted-foreground mt-1">Add an extra layer of security to your account</p>
-              </div>
-              <Switch
-                checked={twoFactorEnabled}
-                onCheckedChange={(checked) => {
-                  setTwoFactorEnabled(checked)
-                  if (checked) setShow2FADialog(true)
-                }}
-              />
-            </div>
-
-            {twoFactorEnabled && (
-              <div className="pl-6 space-y-3">
-                <Badge variant="secondary" className="bg-green-500/10 text-green-500">
-                  <Check className="h-3 w-3 mr-1" />
-                  2FA Enabled
-                </Badge>
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Your backup codes (save these securely):</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {backupCodes.map((code, i) => (
-                      <div key={i} className="flex items-center gap-2 p-2 bg-muted rounded-lg font-mono text-sm">
-                        <span className="flex-1">{code}</span>
-                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleCopyBackupCode}>
-                          {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                    <div className="grid grid-cols-2 gap-2 w-full pt-4">
+                        <Button variant="outline" size="sm" className="rounded-none text-xs h-8 uppercase">
+                        Change Photo
                         </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+                        <Button variant="outline" size="sm" className="rounded-none text-xs h-8 uppercase hover:bg-destructive hover:text-destructive-foreground hover:border-destructive">
+                        Remove
+                        </Button>
+                    </div>
+                </CardContent>
+              </Card>
 
-      {/* Account Activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Your recent login history and account activity</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {activityLogs.length === 0 ? (
-            <div className="text-muted-foreground text-sm text-center py-4">No recent activity found.</div>
-          ) : (
-            <div className="space-y-3">
-              {activityLogs.map((activity) => (
-                <div key={activity.id} className="flex items-start gap-4 p-3 rounded-lg border">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <Shield className="h-5 w-5 text-primary" />
+              {/* Account Activity */}
+              <Card className="rounded-none border-border shadow-none">
+                <CardHeader className="border-b border-border bg-muted/20">
+                  <CardTitle className="font-heading uppercase text-lg flex items-center gap-2">
+                       <Shield className="w-4 h-4" />
+                       Recent Activity
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {activityLogs.length === 0 ? (
+                    <div className="text-muted-foreground text-xs text-center py-8 uppercase tracking-wider">No recent activity found.</div>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {activityLogs.map((activity) => (
+                        <div key={activity.id} className="flex flex-col gap-1 p-4 hover:bg-muted/10 transition-colors">
+                            <div className="flex items-center justify-between">
+                                <span className="font-heading uppercase text-xs font-bold text-foreground">{activity.action}</span>
+                                <span className="text-[10px] font-mono text-muted-foreground">
+                                    {activity.timestamp ? new Date(activity.timestamp).toLocaleDateString() : ""}
+                                </span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground font-mono truncate">
+                                {activity.details} • {activity.ip}
+                            </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+          </div>
+
+          {/* Right Column: Forms */}
+          <div className="space-y-8 lg:col-span-2">
+                {/* Personal Information */}
+              <Card className="rounded-none border-border shadow-none">
+                <CardHeader className="border-b border-border">
+                  <CardTitle className="font-heading uppercase text-xl">Personal Details</CardTitle>
+                  <CardDescription className="uppercase text-xs tracking-wider">Update your basic account information</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6 pt-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName" className="text-xs uppercase font-bold text-muted-foreground">First Name</Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="firstName"
+                          value={formData.firstName}
+                          onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                          className="pl-9 rounded-none border-border focus-visible:ring-1 focus-visible:ring-primary"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="lastName" className="text-xs uppercase font-bold text-muted-foreground">Last Name</Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="lastName"
+                          value={formData.lastName}
+                          onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                          className="pl-9 rounded-none border-border"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium">{activity.action}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {activity.details} • {activity.ip}
-                    </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <Label htmlFor="email" className="text-xs uppercase font-bold text-muted-foreground">Email Address</Label>
+                            <div className="relative">
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input id="email" type="email" defaultValue={user?.email || ""} className="pl-9 rounded-none border-border bg-muted/20" disabled />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="phone" className="text-xs uppercase font-bold text-muted-foreground">Phone Number</Label>
+                            <div className="relative">
+                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                id="phone"
+                                type="tel"
+                                placeholder="+1 (555) 123-4567"
+                                className="pl-9 rounded-none border-border font-mono"
+                                value={formData.phone}
+                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                            />
+                            </div>
+                        </div>
                   </div>
-                  <span className="text-sm text-muted-foreground whitespace-nowrap">
-                    {activity.timestamp ? new Date(activity.timestamp).toLocaleDateString() : ""}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="location" className="text-xs uppercase font-bold text-muted-foreground">Location</Label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="location"
+                        placeholder="San Francisco, CA"
+                        className="pl-9 rounded-none border-border uppercase"
+                        value={formData.location}
+                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="bio" className="text-xs uppercase font-bold text-muted-foreground">Bio</Label>
+                    <Textarea
+                      id="bio"
+                      placeholder="Tell us about yourself..."
+                      rows={3}
+                      value={formData.bio}
+                      onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                      className="rounded-none border-border resize-none"
+                    />
+                  </div>
+
+                  <div className="flex justify-end pt-4 border-t border-border">
+                    <Button onClick={handleProfileUpdate} disabled={isLoading} className="rounded-none bg-primary text-primary-foreground min-w-[150px]">
+                      {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {!isLoading && <Save className="mr-2 h-4 w-4" />}
+                      SAVE CHANGES
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Security Settings */}
+              <Card className="rounded-none border-border shadow-none">
+                <CardHeader className="border-b border-border">
+                  <CardTitle className="font-heading uppercase text-xl">Security & Authentication</CardTitle>
+                  <CardDescription className="uppercase text-xs tracking-wider">Manage system access credentials</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-8 pt-8">
+                  {/* Change Password */}
+                  <div className="space-y-6">
+                    <h4 className="font-bold uppercase text-sm flex items-center gap-2 text-primary">
+                      <Key className="h-4 w-4" />
+                      Update Password
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="currentPassword" className="text-[10px] uppercase font-bold text-muted-foreground">Current Password</Label>
+                        <Input
+                          id="currentPassword"
+                          type="password"
+                          value={passwordData.current}
+                          onChange={(e) => setPasswordData({ ...passwordData, current: e.target.value })}
+                          className="rounded-none border-border"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="newPassword"  className="text-[10px] uppercase font-bold text-muted-foreground">New Password</Label>
+                        <Input
+                          id="newPassword"
+                          type="password"
+                          value={passwordData.new}
+                          onChange={(e) => setPasswordData({ ...passwordData, new: e.target.value })}
+                          className="rounded-none border-border"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="confirmPassword"  className="text-[10px] uppercase font-bold text-muted-foreground">Confirm Password</Label>
+                        <Input
+                          id="confirmPassword"
+                          type="password"
+                          value={passwordData.confirm}
+                          onChange={(e) => setPasswordData({ ...passwordData, confirm: e.target.value })}
+                          className="rounded-none border-border"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                         <Button size="sm" onClick={handlePasswordUpdate} disabled={isLoading} variant="outline" className="rounded-none border-primary text-primary uppercase text-xs font-bold hover:bg-primary hover:text-primary-foreground">
+                            {isLoading && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+                            Update Password
+                        </Button>
+                    </div>
+                  </div>
+
+                  <Separator className="bg-border" />
+
+                  {/* Two-Factor Authentication */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 border border-border bg-muted/5">
+                      <div>
+                        <h4 className="font-bold uppercase text-sm flex items-center gap-2">
+                          <Smartphone className="h-4 w-4" />
+                          Two-Factor Authentication
+                        </h4>
+                        <p className="text-xs text-muted-foreground mt-1 font-mono">Enhance account security with 2FA.</p>
+                      </div>
+                      <Switch
+                        checked={twoFactorEnabled}
+                        onCheckedChange={(checked) => {
+                          setTwoFactorEnabled(checked)
+                          if (checked) setShow2FADialog(true)
+                        }}
+                        className="data-[state=checked]:bg-primary"
+                      />
+                    </div>
+
+                    {twoFactorEnabled && (
+                      <div className="border border-green-500/20 bg-green-500/5 p-4 space-y-4 animate-in slide-in-from-top-2">
+                        <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="rounded-none border-green-500 text-green-600 uppercase text-[10px] bg-green-500/10">
+                            <Check className="h-3 w-3 mr-1" />
+                            Active
+                            </Badge>
+                            <span className="text-xs font-bold uppercase text-green-700">Account Protected</span>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Backup Codes</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {backupCodes.map((code, i) => (
+                              <div key={i} className="flex items-center gap-2 p-2 bg-background border border-border font-mono text-xs">
+                                <span className="flex-1 tracking-widest">{code}</span>
+                                <Button size="icon" variant="ghost" className="h-6 w-6 rounded-none hover:bg-muted" onClick={handleCopyBackupCode}>
+                                  {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+          </div>
+      </div>
 
       {/* 2FA Setup Dialog */}
       <Dialog open={show2FADialog} onOpenChange={setShow2FADialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md rounded-none border-border">
           <DialogHeader>
-            <DialogTitle>Enable Two-Factor Authentication</DialogTitle>
-            <DialogDescription>
-              Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
+            <DialogTitle className="font-heading uppercase">Enable 2FA</DialogTitle>
+            <DialogDescription className="uppercase text-xs tracking-wider">
+              Scan with Authenticator App (Google/Authy)
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="flex justify-center p-6 bg-white rounded-lg">
-              <div className="h-48 w-48 bg-gray-200 flex items-center justify-center rounded-lg">
-                <p className="text-sm text-gray-500">QR Code Here</p>
+          <div className="space-y-6 pt-4">
+            <div className="flex justify-center p-6 bg-white border-2 border-dashed border-border w-fit mx-auto">
+              <div className="h-40 w-40 bg-zinc-900 flex items-center justify-center">
+                 {/* Placeholder QR */}
+                 <div className="grid grid-cols-4 gap-1 p-2 w-full h-full opacity-50">
+                    {Array(16).fill(0).map((_, i) => (
+                        <div key={i} className={`bg-white ${Math.random() > 0.5 ? 'opacity-100' : 'opacity-0'}`} />
+                    ))}
+                 </div>
               </div>
             </div>
+            
             <div className="space-y-2">
-              <Label>Manual Entry Key</Label>
+              <Label className="text-[10px] uppercase font-bold text-muted-foreground">Manual Entry Key</Label>
               <div className="flex gap-2">
-                <Input readOnly value="JBSWY3DPEHPK3PXP" className="font-mono" />
-                <Button size="icon" variant="outline" onClick={handleCopyBackupCode}>
+                <Input readOnly value="JBSWY3DPEHPK3PXP" className="font-mono text-center rounded-none border-border bg-muted/20" />
+                <Button size="icon" variant="outline" onClick={handleCopyBackupCode} className="rounded-none border-border">
                   {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
+
             <div className="space-y-2">
-              <Label>Enter Verification Code</Label>
-              <Input placeholder="000000" maxLength={6} className="text-center text-2xl tracking-widest" />
+              <Label className="text-[10px] uppercase font-bold text-muted-foreground">Verification Code</Label>
+              <Input placeholder="000 000" maxLength={6} className="text-center text-xl tracking-[0.5em] font-mono rounded-none border-border h-12" />
             </div>
-            <Button className="w-full" onClick={() => setShow2FADialog(false)}>
-              Verify and Enable
+
+            <Button className="w-full rounded-none font-bold uppercase tracking-wider" onClick={() => setShow2FADialog(false)}>
+              Verify & Enable
             </Button>
           </div>
         </DialogContent>
       </Dialog>
     </div>
-
   )
 }

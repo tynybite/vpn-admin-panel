@@ -1,6 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Geist, Geist_Mono, Parkinsans, Delius } from "next/font/google"
+import { Oswald, Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { ThemeProvider } from "@/components/theme-provider"
 import { PreferencesProvider } from "@/components/preferences-provider"
@@ -8,17 +8,14 @@ import { Toaster } from "@/components/ui/sonner"
 import "./globals.css"
 import { AuthProvider } from "@/components/auth-provider"
 
-const _geist = Geist({ subsets: ["latin"] })
-const _geistMono = Geist_Mono({ subsets: ["latin"] })
-const parkinsans = Parkinsans({
+const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
-  weight: ["300", "400", "500", "600", "700"],
 })
-const delius = Delius({
+const oswald = Oswald({
   subsets: ["latin"],
   variable: "--font-heading",
-  weight: "400",
+  weight: ["400", "500", "600", "700"],
 })
 
 export const metadata: Metadata = {
@@ -49,7 +46,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`h-full ${parkinsans.variable} ${delius.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`h-full ${inter.variable} ${oswald.variable}`}>
       <body className="font-sans antialiased h-full overflow-auto bg-background">
         <ThemeProvider attribute="class" defaultTheme="dark" storageKey="cloudvpn-theme" enableSystem>
           <AuthProvider>
