@@ -70,8 +70,8 @@ export async function GET(request: Request) {
                 role: firestoreData.role || "user",
                 status: status,
                 plan: firestoreData.plan || firestoreData.tier || "free",
-                registrationDate: authUser?.metadata.creationTime ? new Date(authUser.metadata.creationTime).toLocaleDateString() : (firestoreData.createdAt ? new Date(firestoreData.createdAt).toLocaleDateString() : "Unknown"),
-                lastLogin: authUser?.metadata.lastSignInTime ? new Date(authUser.metadata.lastSignInTime).toLocaleDateString() : "Never",
+                registrationDate: authUser?.metadata.creationTime || (firestoreData.createdAt ? new Date(firestoreData.createdAt).toISOString() : null),
+                lastLogin: authUser?.metadata.lastSignInTime || null,
                 provider: authUser?.providerData[0]?.providerId || firestoreData.provider || "anonymous",
             }
         })

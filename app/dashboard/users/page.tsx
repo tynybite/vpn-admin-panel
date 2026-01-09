@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -55,13 +56,17 @@ import {
   XCircle,
   Activity,
   MoreVertical,
-  RefreshCw
+  RefreshCw,
+  CalendarIcon
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 // Removed direct import from user-service, using fetch now
 import { toast } from "sonner"
 import { useAuth } from "@/components/auth-provider"
 import { fetchWithAuth } from "@/lib/api-client"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import type { DateRange } from "react-day-picker"
 
 // Define UserData locally or import shared type
 export interface UserData {
@@ -91,6 +96,7 @@ export default function UsersPage() {
   const [planFilter, setPlanFilter] = useState<string[]>([])
   const [roleFilter, setRoleFilter] = useState<string[]>([])
   const [excludeGuests, setExcludeGuests] = useState(false)
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const [showDetailDialog, setShowDetailDialog] = useState(false)
   const [showActionDialog, setShowActionDialog] = useState(false)
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null)
@@ -156,7 +162,36 @@ export default function UsersPage() {
     // Removed excludeGuests from dependency array in effect, but logic is fine here.
     // Guests check: provider === 'anonymous'
     const matchesGuest = !excludeGuests || user.provider !== "anonymous"
-    return matchesSearch && matchesStatus && matchesPlan && matchesRole && matchesGuest
+    
+    // Date range filter for registration date
+    let matchesDate = true
+    if (dateRange?.from && user.registrationDate && user.registrationDate !== "Unknown") {
+      try {
+        // Parse user registration date - Date constructor handles most formats:
+        // "1/9/2026", "Jan 9, 2026", "2026-01-09", etc.
+        const userDate = new Date(user.registrationDate)
+        
+        // Check if date is valid
+        if (!isNaN(userDate.getTime())) {
+          if (dateRange.to) {
+            matchesDate = isWithinInterval(userDate, {
+              start: startOfDay(dateRange.from),
+              end: endOfDay(dateRange.to)
+            })
+          } else {
+            // Single date selected - match that specific day
+            matchesDate = isWithinInterval(userDate, {
+              start: startOfDay(dateRange.from),
+              end: endOfDay(dateRange.from)
+            })
+          }
+        }
+      } catch {
+        matchesDate = true // If date parsing fails, include the user
+      }
+    }
+    
+    return matchesSearch && matchesStatus && matchesPlan && matchesRole && matchesGuest && matchesDate
   })
 
   // Pagination Logic
@@ -173,7 +208,7 @@ export default function UsersPage() {
   useEffect(() => {
     setCurrentPage(1)
     setSelectedUids([]) // Clear selection when filters change
-  }, [searchQuery, statusFilter, planFilter, roleFilter, excludeGuests])
+  }, [searchQuery, statusFilter, planFilter, roleFilter, excludeGuests, dateRange])
 
   const toggleSelectAll = () => {
     if (selectedUids.length === paginatedUsers.length) {
@@ -602,6 +637,52 @@ export default function UsersPage() {
                   Exclude Guests
                   {excludeGuests && <CheckCircle2 className="h-4 w-4 text-green-500" />}
                 </Button>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={dateRange?.from ? "secondary" : "outline"}
+                      className={cn(
+                        "gap-2 border-dashed min-w-[200px] justify-start text-left font-normal",
+                        !dateRange?.from && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="h-4 w-4" />
+                      {dateRange?.from ? (
+                        dateRange.to ? (
+                          <>
+                            {format(dateRange.from, "LLL dd")} - {format(dateRange.to, "LLL dd, y")}
+                          </>
+                        ) : (
+                          format(dateRange.from, "LLL dd, y")
+                        )
+                      ) : (
+                        "Registration Date"
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      initialFocus
+                      mode="range"
+                      defaultMonth={dateRange?.from}
+                      selected={dateRange}
+                      onSelect={setDateRange}
+                      numberOfMonths={2}
+                    />
+                    {dateRange?.from && (
+                      <div className="p-3 border-t">
+                        <Button
+                          variant="ghost"
+                          className="w-full"
+                          onClick={() => setDateRange(undefined)}
+                        >
+                          Clear Date Filter
+                        </Button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="flex items-center gap-2">
@@ -726,10 +807,22 @@ export default function UsersPage() {
                             )}
                           </TableCell>
                           <TableCell>
-                            <div className="text-sm">{user.registrationDate}</div>
+                            <div className="text-sm">
+                              {(() => {
+                                if (!user.registrationDate) return "Unknown"
+                                const date = new Date(user.registrationDate)
+                                return isNaN(date.getTime()) ? "Unknown" : format(date, "MMM d, yyyy")
+                              })()}
+                            </div>
                           </TableCell>
                           <TableCell>
-                            <div className="text-sm">{user.lastLogin}</div>
+                            <div className="text-sm">
+                              {(() => {
+                                if (!user.lastLogin) return "Never"
+                                const date = new Date(user.lastLogin)
+                                return isNaN(date.getTime()) ? "Never" : format(date, "MMM d, yyyy")
+                              })()}
+                            </div>
                           </TableCell>
                           <TableCell>
                             <div className="text-xs">
