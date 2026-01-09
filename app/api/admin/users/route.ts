@@ -61,6 +61,23 @@ export async function GET(request: Request) {
                 status = "deleted"
             }
 
+            // Safely parse date helper
+            const safeDate = (val: any) => {
+                if (!val) return null
+                try {
+                    // Handle Firestore Timestamp (has toDate method)
+                    if (val && typeof val.toDate === 'function') {
+                        return val.toDate().toISOString()
+                    }
+                    // Handle numbers/strings
+                    const date = new Date(val)
+                    if (isNaN(date.getTime())) return null
+                    return date.toISOString()
+                } catch (e) {
+                    return null
+                }
+            }
+
             return {
                 id: uid,
                 uid: uid,
@@ -70,8 +87,8 @@ export async function GET(request: Request) {
                 role: firestoreData.role || "user",
                 status: status,
                 plan: firestoreData.plan || firestoreData.tier || "free",
-                registrationDate: authUser?.metadata.creationTime || (firestoreData.createdAt ? new Date(firestoreData.createdAt).toISOString() : null),
-                lastLogin: authUser?.metadata.lastSignInTime || null,
+                registrationDate: safeDate(authUser?.metadata.creationTime) || safeDate(firestoreData.createdAt),
+                lastLogin: safeDate(authUser?.metadata.lastSignInTime) || null,
                 provider: authUser?.providerData[0]?.providerId || firestoreData.provider || "anonymous",
             }
         })

@@ -44,7 +44,7 @@ export default function DownloadsPage() {
         <div className="space-y-6">
             <div>
                 <h1 className="text-3xl font-bold">Downloads</h1>
-                <p className="text-muted-foreground">Download FreeShield VPN for all your devices</p>
+                <p className="text-muted-foreground">Download Velocity VPN for all your devices</p>
             </div>
 
             <div className="grid gap-6 md:grid-cols-2">

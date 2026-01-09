@@ -9,7 +9,7 @@ export default function ConfigurationPage() {
   const router = useRouter()
 
   useEffect(() => {
-    router.replace("/dashboard/config/features")
+    router.replace("/dashboard/config/app")
   }, [router])
 
   return (

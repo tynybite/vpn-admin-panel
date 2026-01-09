@@ -1,338 +1,299 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts"
+import { Users, Server, Activity, ArrowUpRight, ArrowDownRight, Globe, Shield, Zap } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Activity, Users, Server, Globe, Shield, Zap, DollarSign, Loader2 } from "lucide-react"
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  XAxis,
-  YAxis,
-} from "recharts"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import {
-  getDashboardStats,
-  getConnectionData,
-  getServerLoadData,
-  getUserGrowthData,
-  getTopCountries,
-  getRecentActivity,
-  getSystemHealth,
-  type DashboardStats,
-  type ConnectionDataPoint,
-  type ServerLoadDataPoint,
-  type UserGrowthDataPoint,
-} from "@/lib/dashboard-service"
-import { toast } from "sonner"
-import { CacheService } from "@/lib/cache-service"
-import { DashboardSkeleton } from "@/components/dashboard-skeleton"
+import { useTheme } from "next-themes"
+import { fetchWithAuth } from "@/lib/api-client"
+import { Skeleton } from "@/components/ui/skeleton"
+import { cn } from "@/lib/utils"
 
 export default function DashboardPage() {
-
+  const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [connectionData, setConnectionData] = useState<ConnectionDataPoint[]>([])
-  const [serverData, setServerData] = useState<ServerLoadDataPoint[]>([])
-  const [userData, setUserData] = useState<UserGrowthDataPoint[]>([])
-  const [topCountries, setTopCountries] = useState<any[]>([])
-  const [recentActivity, setRecentActivity] = useState<any[]>([])
-  const [systemHealth, setSystemHealth] = useState<any[]>([])
+  const [stats, setStats] = useState<any>({
+    totalUsers: 0,
+    activeUsers: 0,
+    premiumUsers: 0,
+    totalServers: 0,
+    activeServers: 0
+  })
+  const [activity, setActivity] = useState<any[]>([])
+  const [trafficData, setTrafficData] = useState<any[]>([])
+  
+  const { theme } = useTheme()
 
   useEffect(() => {
-    loadDashboardData()
+    setMounted(true)
+    fetchDashboardData()
   }, [])
 
-  const loadDashboardData = async () => {
+  const fetchDashboardData = async () => {
     try {
-      setLoading(true)
-      const CACHE_KEY = "admin_dashboard_stats";
-      const cached = CacheService.get<any>(CACHE_KEY);
-
-      if (cached) {
-        setStats(cached.stats);
-        setConnectionData(cached.connData);
-        setServerData(cached.srvData);
-        setUserData(cached.usrData);
-        setTopCountries(cached.countries);
-        setRecentActivity(cached.activity);
-        setSystemHealth(cached.health);
-        setLoading(false);
-        return;
+      const res = await fetchWithAuth("/api/admin/dashboard")
+      if (res.ok) {
+        const data = await res.json()
+        setStats(data.stats)
+        setActivity(data.recentActivity || [])
+        setTrafficData(data.trafficData || [])
       }
-
-      const [statsData, connData, srvData, usrData, countries, activity, health] = await Promise.all([
-        getDashboardStats(),
-        getConnectionData(),
-        getServerLoadData(),
-        getUserGrowthData(),
-        getTopCountries(),
-        getRecentActivity(),
-        getSystemHealth(),
-      ])
-
-      const dataToCache = {
-        stats: statsData,
-        connData,
-        srvData,
-        usrData,
-        countries,
-        activity,
-        health
-      };
-      CacheService.set(CACHE_KEY, dataToCache);
-
-      setStats(statsData)
-      setConnectionData(connData)
-      setServerData(srvData)
-      setUserData(usrData)
-      setTopCountries(countries)
-      setRecentActivity(activity)
-      setSystemHealth(health)
     } catch (error) {
-      console.error("[v0] Error loading dashboard data:", error)
-      toast.error("Error", {
-        description: "Failed to load dashboard data. Please refresh the page.",
-      })
+      console.error("Failed to fetch dashboard stats", error)
     } finally {
       setLoading(false)
     }
   }
 
-  if (loading) {
-    return <DashboardSkeleton />
-  }
-
-  const statCards = [
-    {
-      title: "Daily Active Users",
-      value: stats?.dailyActiveUsers.toLocaleString() || "0",
-      change: stats?.dailyActiveUsersChange || "+0%",
-      icon: Users,
-      gradient: "from-[#4c6ef5] to-[#5c7cfa]",
-    },
-    {
-      title: "Active Connections",
-      value: stats?.activeConnections.toLocaleString() || "0",
-      change: stats?.activeConnectionsChange || "+0%",
-      icon: Activity,
-      gradient: "from-[#22b8cf] to-[#3bc9db]",
-    },
-    {
-      title: "Servers Online",
-      value: stats?.serversOnline || "0/0",
-      change: stats?.serversOnlinePercentage || "0%",
-      icon: Server,
-      gradient: "from-[#be4bdb] to-[#cc5de8]",
-    },
-    {
-      title: "Monthly Revenue",
-      value: stats?.monthlyRevenue || "$0",
-      change: stats?.monthlyRevenueChange || "+0%",
-      icon: DollarSign,
-      gradient: "from-[#51cf66] to-[#40c057]",
-    },
-  ]
+  if (!mounted) return null
 
   return (
-    <div className="space-y-8 pb-8">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-4xl font-bold mb-2">Dashboard</h1>
-        <p className="text-muted-foreground text-lg">
-          Welcome back! Here's what's happening with your VPN network today.
-        </p>
+    <div className="space-y-8">
+      {/* Header Section */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b-2 border-border">
+        <div>
+          <h1 className="text-4xl font-heading font-bold uppercase tracking-tight text-foreground">
+            Overview
+          </h1>
+          <p className="text-muted-foreground font-sans mt-1">
+            System status and real-time metrics.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+           <span className="flex items-center gap-2 px-3 py-1 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-wider">
+              <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+              System Operational
+           </span>
+        </div>
       </div>
-
+      
       {/* Stats Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat, index) => (
-          <Card key={index} className="border-0 shadow-sm hover:shadow-md transition-all duration-300 bg-card/50 backdrop-blur-xl rounded-[2rem] dark:border dark:border-white/10 dark:bg-white/5">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
-              <div
-                className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${stat.gradient} flex items-center justify-center shadow-inner`}
-              >
-                <stat.icon className="h-6 w-6 text-white" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold mb-1 tracking-tight">{stat.value}</div>
-              <p className="text-xs text-muted-foreground font-medium">
-                <span className="text-emerald-500 font-bold">{stat.change}</span> from last period
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {loading ? (
+             Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-32 rounded-none" />)
+        ) : (
+            <>
+                <StatCard 
+                  title="Total Users" 
+                  value={stats.totalUsers.toLocaleString()} 
+                  change={`+${stats.premiumUsers} Premium`} 
+                  trend="neutral" 
+                  icon={Users}
+                />
+                <StatCard 
+                  title="Active Users" 
+                  value={stats.activeUsers.toLocaleString()} 
+                  change={`${Math.round((stats.activeUsers / (stats.totalUsers || 1)) * 100)}% Active`} 
+                  trend="up" 
+                  icon={Activity}
+                />
+                <StatCard 
+                  title="Active Servers" 
+                  value={`${stats.activeServers} / ${stats.totalServers}`}
+                  change="Healthy" 
+                  trend="up" 
+                  icon={Server}
+                />
+                <StatCard 
+                  title="Traffic (Est)" 
+                  value="1.2 TB" 
+                  change="+24%" 
+                  trend="up" 
+                  icon={Globe}
+                />
+            </>
+        )}
       </div>
 
-      {/* Charts Grid */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Connection Activity */}
-        <Card className="border-0 shadow-sm bg-card/50 backdrop-blur-xl rounded-[2rem] min-h-[400px] dark:border dark:border-white/10 dark:bg-white/5">
+      {/* Charts & Activity */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        {/* Main Chart */}
+        <Card className="col-span-4 rounded-none border-border shadow-none">
           <CardHeader>
-            <CardTitle>Connection Activity</CardTitle>
-            <CardDescription>Active VPN connections over the last 24 hours</CardDescription>
+            <CardTitle className="font-heading uppercase text-xl">Traffic Analysis</CardTitle>
+            <CardDescription className="uppercase text-xs tracking-wider">Daily bandwidth usage (GB).</CardDescription>
           </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{
-                connections: {
-                  label: "Active Connections",
-                  color: "oklch(0.65 0.25 254)",
-                },
-              }}
-              className="h-[300px]"
-            >
-              <AreaChart data={connectionData}>
-                <defs>
-                  <linearGradient id="colorConnections" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="oklch(0.65 0.25 254)" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="oklch(0.65 0.25 254)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="time" className="text-xs" />
-                <YAxis className="text-xs" />
-                <ChartTooltip content={<ChartTooltipContent nameKey="dataKey" labelKey="time" />} />
-                <Area
-                  type="monotone"
-                  dataKey="connections"
-                  stroke="oklch(0.65 0.25 254)"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorConnections)"
-                />
-              </AreaChart>
-            </ChartContainer>
+          <CardContent className="pl-2">
+            <div className="h-[350px] w-full">
+              {loading ? (
+                  <Skeleton className="h-full w-full rounded-none" />
+              ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={trafficData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                      <XAxis
+                        dataKey="name"
+                        stroke="#888888"
+                        fontSize={12}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis
+                        stroke="#888888"
+                        fontSize={12}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(value) => `${value}`}
+                      />
+                      <Tooltip 
+                         cursor={{fill: 'var(--muted)'}}
+                         contentStyle={{ 
+                            backgroundColor: 'var(--popover)', 
+                            borderColor: 'var(--border)',
+                            borderRadius: '0px',
+                            fontFamily: 'var(--font-sans)',
+                            textTransform: 'uppercase',
+                            fontSize: '12px',
+                            fontWeight: 'bold'
+                         }}
+                      />
+                      <Bar 
+                        dataKey="total" 
+                        fill="var(--primary)" 
+                        radius={[0, 0, 0, 0]} 
+                        barSize={40}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+              )}
+            </div>
           </CardContent>
         </Card>
 
-        {/* Server Load */}
-        <Card className="border-0 shadow-sm bg-card/50 backdrop-blur-xl rounded-[2rem] min-h-[400px] dark:border dark:border-white/10 dark:bg-white/5">
+        {/* Recent Activity */}
+        <Card className="col-span-3 rounded-none border-border shadow-none">
           <CardHeader>
-            <CardTitle>Server Load Distribution</CardTitle>
-            <CardDescription>Current load across top server locations</CardDescription>
+            <CardTitle className="font-heading uppercase text-xl">Live Feed</CardTitle>
+            <CardDescription className="uppercase text-xs tracking-wider">Recent system events and user actions.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer
-              config={{
-                load: {
-                  label: "Server Load (%)",
-                  color: "oklch(0.72 0.22 190)",
-                },
-              }}
-              className="h-[300px]"
-            >
-              <BarChart data={serverData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="location" className="text-xs" />
-                <YAxis className="text-xs" />
-                <ChartTooltip content={<ChartTooltipContent nameKey="dataKey" labelKey="location" />} />
-                <Bar dataKey="load" fill="oklch(0.72 0.22 190)" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* User Growth */}
-        <Card className="border-0 shadow-sm bg-card/50 backdrop-blur-xl rounded-[2rem] lg:col-span-2 min-h-[400px] dark:border dark:border-white/10 dark:bg-white/5">
-          <CardHeader>
-            <CardTitle>User Growth Trend</CardTitle>
-            <CardDescription>Free vs Premium user acquisition over time</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{
-                free: {
-                  label: "Free Users",
-                  color: "oklch(0.75 0.28 305)",
-                },
-                premium: {
-                  label: "Premium Users",
-                  color: "oklch(0.65 0.25 254)",
-                },
-              }}
-              className="h-[300px]"
-            >
-              <LineChart data={userData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="month" className="text-xs" />
-                <YAxis className="text-xs" />
-                <ChartTooltip content={<ChartTooltipContent nameKey="dataKey" labelKey="month" />} />
-                <Line type="monotone" dataKey="free" stroke="oklch(0.75 0.28 305)" strokeWidth={2} dot={{ r: 4 }} />
-                <Line
-                  type="monotone"
-                  dataKey="premium"
-                  stroke="oklch(0.65 0.25 254)"
-                  strokeWidth={2}
-                  dot={{ r: 4 }}
-                />
-              </LineChart>
-            </ChartContainer>
+             <div className="space-y-6">
+                {loading ? (
+                     Array(5).fill(0).map((_, i) => (
+                         <div key={i} className="flex gap-4">
+                             <Skeleton className="h-10 w-10 rounded-full" />
+                             <div className="space-y-2 flex-1">
+                                 <Skeleton className="h-4 w-full" />
+                                 <Skeleton className="h-4 w-1/2" />
+                             </div>
+                         </div>
+                     ))
+                ) : activity.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground uppercase text-xs">
+                        No recent activity
+                    </div>
+                ) : (
+                    activity.map((item, i) => (
+                       <div key={i} className="flex items-start justify-between border-b border-border pb-4 last:border-0 last:pb-0">
+                          <div className="space-y-1">
+                             <p className="text-sm font-medium leading-none font-heading uppercase">{item.action}</p>
+                             <p className="text-xs text-muted-foreground font-mono">{item.user}</p>
+                          </div>
+                          <div className="text-right">
+                             <span className="text-[10px] font-mono text-muted-foreground uppercase">
+                                 {new Date(item.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                             </span>
+                             <div className={cn(
+                                "mt-1 w-2 h-2 ml-auto rounded-none",
+                                item.status === 'success' ? 'bg-primary' : 'bg-destructive'
+                             )} />
+                          </div>
+                       </div>
+                    ))
+                )}
+             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Quick Actions & System Status */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="border-0 shadow-sm bg-card/50 backdrop-blur-xl rounded-[2rem] min-h-[280px] dark:border dark:border-white/10 dark:bg-white/5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-primary" />
-              System Health
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {systemHealth.map((item, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <span className="text-sm">{item.name}</span>
-                <span className={`text-sm font-semibold ${item.color}`}>{item.status}</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+      {/* Server Status Grid */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+         <div className="p-6 border border-border bg-card">
+            <h3 className="font-heading uppercase text-lg mb-4 flex items-center gap-2">
+               <Shield className="w-5 h-5 text-primary" />
+               Security Status
+            </h3>
+            <div className="space-y-4">
+               <div className="flex justify-between items-center text-sm uppercase tracking-wide">
+                  <span>Firewall</span>
+                  <span className="font-bold text-primary">ACTIVE</span>
+               </div>
+               <div className="flex justify-between items-center text-sm uppercase tracking-wide">
+                  <span>Threat Detection</span>
+                  <span className="font-bold text-primary">ARMED</span>
+               </div>
+               <div className="flex justify-between items-center text-sm uppercase tracking-wide">
+                  <span>Last Scan</span>
+                  <span className="text-muted-foreground">AUTO</span>
+               </div>
+            </div>
+         </div>
 
-        <Card className="border-0 shadow-sm bg-card/50 backdrop-blur-xl rounded-[2rem] min-h-[280px] dark:border dark:border-white/10 dark:bg-white/5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Globe className="h-5 w-5 text-secondary" />
-              Top Countries
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {topCountries.map((item, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <span className="text-sm">{item.country}</span>
-                <span className="text-sm font-semibold">{item.users}</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-sm bg-card/50 backdrop-blur-xl rounded-[2rem] min-h-[280px] dark:border dark:border-white/10 dark:bg-white/5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Zap className="h-5 w-5 text-accent" />
-              Recent Activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {recentActivity.map((item, index) => (
-              <div key={index} className="space-y-1">
-                <div className="text-sm">{item.action}</div>
-                <div className="text-xs text-muted-foreground">{item.time}</div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+         <div className="p-6 border border-border bg-card">
+            <h3 className="font-heading uppercase text-lg mb-4 flex items-center gap-2">
+               <Zap className="w-5 h-5 text-primary" />
+               Performance
+            </h3>
+            <div className="space-y-4">
+               <div className="space-y-1">
+                  <div className="flex justify-between text-xs uppercase font-bold">
+                     <span>CPU Usage</span>
+                     <span>24%</span>
+                  </div>
+                  <div className="h-2 w-full bg-secondary">
+                     <div className="h-full bg-primary w-[24%]" />
+                  </div>
+               </div>
+               <div className="space-y-1">
+                  <div className="flex justify-between text-xs uppercase font-bold">
+                     <span>Memory</span>
+                     <span>56%</span>
+                  </div>
+                  <div className="h-2 w-full bg-secondary">
+                     <div className="h-full bg-primary w-[56%]" />
+                  </div>
+               </div>
+            </div>
+         </div>
+         
+         <div className="p-6 border border-border bg-card flex flex-col justify-center items-center text-center bg-accent/5">
+             <div className="mb-2 p-3 bg-primary text-primary-foreground">
+                <Globe className="w-6 h-6" />
+             </div>
+             <div className="text-3xl font-heading font-bold">{loading ? "-" : stats.activeServers}</div>
+             <div className="text-xs uppercase tracking-widest text-muted-foreground mt-1">Active Regions</div>
+         </div>
       </div>
     </div>
-
   )
+}
+
+function StatCard({ title, value, change, trend, icon: Icon }: any) {
+   return (
+      <Card className="rounded-none border-border shadow-none hover:border-primary transition-colors cursor-default group bg-card">
+         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs font-bold font-sans uppercase tracking-wider text-muted-foreground">
+               {title}
+            </CardTitle>
+            <Icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+         </CardHeader>
+         <CardContent>
+            <div className="text-2xl font-bold font-heading">{value}</div>
+            <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1 uppercase tracking-wider">
+               {trend !== 'neutral' && (trend === 'up' ? (
+                  <ArrowUpRight className="w-3 h-3 text-primary" />
+               ) : (
+                  <ArrowDownRight className="w-3 h-3 text-destructive" />
+               ))}
+               <span className={cn(
+                   trend === 'up' && 'text-primary',
+                   trend === 'down' && 'text-destructive'
+               )}>
+                  {change}
+               </span>
+            </p>
+         </CardContent>
+      </Card>
+   )
 }

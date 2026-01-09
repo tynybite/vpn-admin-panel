@@ -52,7 +52,7 @@ function AppFormFields({ formData, setFormData }: { formData: any, setFormData: 
         <Label htmlFor="name">App Name *</Label>
         <Input
           id="name"
-          placeholder="FreeShield VPN Pro"
+          placeholder="Velocity VPN Pro"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
         />

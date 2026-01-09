@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
@@ -16,13 +15,14 @@ import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Bell, Palette, Globe, Clock, Database, Download, Trash2, Check, Zap, Monitor } from "lucide-react"
+import { Bell, Palette, Clock, Database, Download, Trash2, Check, PanelRight } from "lucide-react"
 import { usePreferences } from "@/components/preferences-provider"
 import { useTheme } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/components/auth-provider"
 import { fetchWithAuth } from "@/lib/api-client"
 import { toast } from "sonner"
+import { AdminAlert } from "@/components/admin-alert"
 
 export default function PreferencesPage() {
   const { colorScheme, setColorScheme, sidebarDensity, setSidebarDensity } = usePreferences()
@@ -72,17 +72,16 @@ export default function PreferencesPage() {
   // Helper to save any preference change
   const saveSetting = async (key: string, value: any) => {
     try {
-      // Optimistic update handled by local setters
-      // Save to cloud
-      await fetchWithAuth("/api/admin/preferences", {
-        method: "POST",
-        body: JSON.stringify({ preferences: { [key]: value } })
-      })
+        // Optimistic update handled by local setters
+        // Save to cloud
+        await fetchWithAuth("/api/admin/preferences", {
+            method: "POST",
+            body: JSON.stringify({ preferences: { [key]: value } })
+        })
     } catch (e) {
-      console.error(`Failed to save ${key}`, e)
-      toast.error("Error saving setting", {
-        description: "Could not save your changes to the cloud.",
-      })
+        toast.error("Error saving setting", {
+            description: "Could not save your changes to the cloud.",
+        })
     }
   }
 
@@ -95,248 +94,203 @@ export default function PreferencesPage() {
   const handleRefreshIntervalChange = (val: number[]) => { setRefreshInterval(val); saveSetting("refreshInterval", val); }
 
   const colorSchemes = [
-    { id: "blue" as const, name: "Blue", gradient: "from-blue-500 to-cyan-500" },
-    { id: "purple" as const, name: "Purple", gradient: "from-purple-500 to-pink-500" },
-    { id: "green" as const, name: "Green", gradient: "from-green-500 to-teal-500" },
-    { id: "orange" as const, name: "Orange", gradient: "from-orange-500 to-amber-500" },
-    { id: "pink" as const, name: "Pink", gradient: "from-pink-500 to-rose-500" },
-  ]
+    { id: "blue" as const, name: "International Blue", class: "bg-blue-600" },
+    { id: "purple" as const, name: "Deep Purple", class: "bg-purple-600" },
+    { id: "green" as const, name: "Swiss Green", class: "bg-emerald-600" },
+    { id: "orange" as const, name: "Safety Orange", class: "bg-orange-600" },
+    { id: "pink" as const, name: "Neon Pink", class: "bg-pink-600" },
+  ] as const
 
   if (!mounted) return null
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-8 max-w-5xl mx-auto pb-10">
       {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold gradient-text">Preferences</h1>
-        <p className="text-muted-foreground mt-1">Customize your dashboard experience and notification settings</p>
+      <div className="border-b border-border pb-6 flex justify-between items-end">
+        <div>
+            <h1 className="text-4xl font-heading font-bold uppercase tracking-tight">System Preferences</h1>
+            <p className="text-muted-foreground font-sans text-sm mt-1">Customize interface behavior and alerts.</p>
+        </div>
+        <div className="hidden md:block">
+             <Button variant="outline" className="rounded-none border-primary text-primary hover:bg-primary hover:text-primary-foreground uppercase font-bold text-xs" onClick={() => toast.success("Preferences Synced")}>
+                Sync Settings
+             </Button>
+        </div>
       </div>
 
-      {/* Notification Preferences */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
-            Notifications
-          </CardTitle>
-          <CardDescription>Choose how you want to receive notifications</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label className="text-base">Email Notifications</Label>
-                <p className="text-sm text-muted-foreground">Receive notifications via email</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          
+          {/* Appearance */}
+          <Card className="rounded-none border-border shadow-none h-fit">
+            <CardHeader className="border-b border-border bg-muted/20">
+              <CardTitle className="flex items-center gap-2 font-heading uppercase text-lg">
+                <Palette className="h-5 w-5" />
+                Visual Interface
+              </CardTitle>
+              <CardDescription className="uppercase text-xs tracking-wider">Theme, color, and density</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-8 pt-8">
+              <div className="space-y-4">
+                <Label className="text-xs uppercase font-bold text-muted-foreground">App Theme</Label>
+                <RadioGroup value={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-4">
+                  {[
+                      { id: "light", bg: "bg-white", border: "border-gray-200" },
+                      { id: "dark", bg: "bg-zinc-950", border: "border-zinc-800" },
+                      { id: "system", bg: "bg-gradient-to-r from-gray-200 to-zinc-800", border: "border-gray-400" }
+                  ].map((t) => (
+                    <Label
+                        key={t.id}
+                        htmlFor={t.id}
+                        className={cn(
+                            "flex flex-col gap-2 cursor-pointer group opacity-70 data-[state=checked]:opacity-100",
+                            theme === t.id && "opacity-100"
+                        )}
+                        data-state={theme === t.id ? "checked" : "unchecked"}
+                    >
+                        <RadioGroupItem value={t.id} id={t.id} className="sr-only" />
+                        <div className={cn(
+                            "h-20 w-full border-2 transition-all p-1",
+                            theme === t.id ? "border-primary ring-1 ring-primary/20" : "border-border group-hover:border-primary/50"
+                        )}>
+                            <div className={cn("w-full h-full", t.bg)} />
+                        </div>
+                        <span className="text-center text-xs font-bold uppercase tracking-wider">{t.id}</span>
+                    </Label>
+                  ))}
+                </RadioGroup>
               </div>
-              <Switch checked={emailNotifications} onCheckedChange={handleEmailChange} />
-            </div>
 
-            <Separator />
+              <Separator className="bg-border" />
 
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label className="text-base">Push Notifications</Label>
-                <p className="text-sm text-muted-foreground">Receive browser push notifications</p>
-              </div>
-              <Switch checked={pushNotifications} onCheckedChange={handlePushChange} />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label className="text-base">Server Alerts</Label>
-                <p className="text-sm text-muted-foreground">Get notified about server status changes</p>
-              </div>
-              <Switch checked={serverAlerts} onCheckedChange={handleServerAlertsChange} />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label className="text-base">User Activity Alerts</Label>
-                <p className="text-sm text-muted-foreground">
-                  Notifications for new user registrations and activities
-                </p>
-              </div>
-              <Switch checked={userAlerts} onCheckedChange={handleUserAlertsChange} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Appearance */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Palette className="h-5 w-5" />
-            Appearance
-          </CardTitle>
-          <CardDescription>Customize the look and feel of your dashboard</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-3">
-            <Label className="text-base">Theme</Label>
-            <RadioGroup value={theme} onValueChange={setTheme} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Label
-                htmlFor="light"
-                className="flex flex-col items-center justify-between rounded-lg border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground cursor-pointer [&:has([data-state=checked])]:border-primary"
-              >
-                <RadioGroupItem value="light" id="light" className="sr-only" />
-                <div className="h-16 w-full rounded bg-white border mb-2"></div>
-                <span className="text-sm font-medium">Light</span>
-              </Label>
-              <Label
-                htmlFor="dark"
-                className="flex flex-col items-center justify-between rounded-lg border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground cursor-pointer [&:has([data-state=checked])]:border-primary"
-              >
-                <RadioGroupItem value="dark" id="dark" className="sr-only" />
-                <div className="h-16 w-full rounded bg-slate-950 border mb-2"></div>
-                <span className="text-sm font-medium">Dark</span>
-              </Label>
-              <Label
-                htmlFor="system"
-                className="flex flex-col items-center justify-between rounded-lg border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground cursor-pointer [&:has([data-state=checked])]:border-primary"
-              >
-                <RadioGroupItem value="system" id="system" className="sr-only" />
-                <div className="h-16 w-full rounded bg-gradient-to-r from-white to-slate-950 border mb-2"></div>
-                <span className="text-sm font-medium">System</span>
-              </Label>
-            </RadioGroup>
-          </div>
-
-          <Separator />
-
-          <div className="space-y-3">
-            <Label className="text-base">Color Scheme</Label>
-            <div className="grid grid-cols-5 gap-3">
-              {colorSchemes.map((scheme) => (
-                <button
-                  key={scheme.id}
-                  onClick={() => setColorScheme(scheme.id)}
-                  className={cn(
-                    "relative h-16 w-full rounded-lg border-2 transition-all hover:scale-105",
-                    colorScheme === scheme.id ? "border-primary ring-2 ring-primary/20" : "border-muted",
-                  )}
-                >
-                  <div className={cn("h-full w-full rounded-md bg-gradient-to-br", scheme.gradient)} />
-                  {colorScheme === scheme.id && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Check className="h-6 w-6 text-white drop-shadow-lg" />
-                    </div>
-                  )}
-                  <span className="sr-only">{scheme.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <Separator />
-
-          <div className="space-y-3">
-            <Label className="text-base">Sidebar Density</Label>
-            <Select value={sidebarDensity} onValueChange={(value) => setSidebarDensity(value as any)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="compact">Compact</SelectItem>
-                <SelectItem value="comfortable">Comfortable</SelectItem>
-                <SelectItem value="spacious">Spacious</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Dashboard Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Dashboard Settings
-          </CardTitle>
-          <CardDescription>Configure dashboard behavior and data refresh settings</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label className="text-base">Auto Refresh</Label>
-              <p className="text-sm text-muted-foreground">Automatically refresh dashboard data</p>
-            </div>
-            <Switch checked={autoRefresh} onCheckedChange={handleAutoRefreshChange} />
-          </div>
-
-          {autoRefresh && (
-            <>
-              <Separator />
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base">Refresh Interval</Label>
-                  <span className="text-sm text-muted-foreground">{refreshInterval[0]} seconds</span>
+              <div className="space-y-4">
+                <Label className="text-xs uppercase font-bold text-muted-foreground">Accent Color</Label>
+                <div className="grid grid-cols-5 gap-3">
+                  {colorSchemes.map((scheme) => (
+                    <button
+                      key={scheme.id}
+                      onClick={() => setColorScheme(scheme.id)}
+                      className={cn(
+                        "relative h-12 w-full border-2 transition-all hover:scale-105 rounded-none",
+                        colorScheme === scheme.id ? "border-foreground" : "border-transparent",
+                      )}
+                      title={scheme.name}
+                    >
+                      <div className={cn("h-full w-full", scheme.class)} />
+                      {colorScheme === scheme.id && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                          <Check className="h-5 w-5 text-white" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
                 </div>
-                <Slider
-                  value={refreshInterval}
-                  onValueChange={handleRefreshIntervalChange}
-                  min={10}
-                  max={120}
-                  step={10}
-                  className="w-full"
-                />
               </div>
-            </>
-          )}
 
-          <Separator />
+              <Separator className="bg-border" />
 
-          <div className="space-y-3">
-            <Label className="text-base">Default Dashboard View</Label>
-            <Select defaultValue="overview">
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="overview">Overview</SelectItem>
-                <SelectItem value="servers">Servers</SelectItem>
-                <SelectItem value="users">Users</SelectItem>
-                <SelectItem value="analytics">Analytics</SelectItem>
-              </SelectContent>
-            </Select>
+              <div className="space-y-4">
+                <Label className="text-xs uppercase font-bold text-muted-foreground">Sidebar Density</Label>
+                <Select value={sidebarDensity} onValueChange={(value) => setSidebarDensity(value as any)}>
+                  <SelectTrigger className="rounded-none border-border">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-none border-border">
+                    <SelectItem value="compact">COMPACT</SelectItem>
+                    <SelectItem value="comfortable">COMFORTABLE</SelectItem>
+                    <SelectItem value="spacious">SPACIOUS</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Right Column Group */}
+          <div className="space-y-8">
+                {/* Notification Preferences */}
+                <Card className="rounded-none border-border shadow-none">
+                    <CardHeader className="border-b border-border bg-muted/20">
+                    <CardTitle className="flex items-center gap-2 font-heading uppercase text-lg">
+                        <Bell className="h-5 w-5" />
+                        Alerts & Notifications
+                    </CardTitle>
+                    </CardHeader>
+                    <CardContent className="divide-y divide-border">
+                        {[
+                            { label: "Email Notifications", desc: "Receive automated reports via email", state: emailNotifications, fn: handleEmailChange },
+                            { label: "Push Notifications", desc: "Browser alerts for critical events", state: pushNotifications, fn: handlePushChange },
+                            { label: "Server Alerts", desc: "Notify when server load > 90%", state: serverAlerts, fn: handleServerAlertsChange },
+                            { label: "User Registration", desc: "Notify on new user signups", state: userAlerts, fn: handleUserAlertsChange },
+                        ].map((item, i) => (
+                            <div key={i} className="flex items-center justify-between py-4 first:pt-6 last:pb-2">
+                                <div className="space-y-1">
+                                    <Label className="text-sm uppercase font-bold">{item.label}</Label>
+                                    <p className="text-xs text-muted-foreground">{item.desc}</p>
+                                </div>
+                                <Switch checked={item.state} onCheckedChange={item.fn} className="data-[state=checked]:bg-primary"/>
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
+
+                {/* Dashboard Settings */}
+                <Card className="rounded-none border-border shadow-none">
+                    <CardHeader className="border-b border-border bg-muted/20">
+                    <CardTitle className="flex items-center gap-2 font-heading uppercase text-lg">
+                        <Clock className="h-5 w-5" />
+                        Live Data
+                    </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6 pt-6">
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                            <Label className="text-sm uppercase font-bold">Auto Refresh</Label>
+                            <p className="text-xs text-muted-foreground">Poll for new data automatically</p>
+                            </div>
+                            <Switch checked={autoRefresh} onCheckedChange={handleAutoRefreshChange} className="data-[state=checked]:bg-primary"/>
+                        </div>
+
+                        {autoRefresh && (
+                            <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-1">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-xs uppercase font-bold text-muted-foreground">Refresh Interval</Label>
+                                    <span className="text-xs font-mono font-bold">{refreshInterval[0]}s</span>
+                                </div>
+                                <Slider
+                                    value={refreshInterval}
+                                    onValueChange={handleRefreshIntervalChange}
+                                    min={10}
+                                    max={120}
+                                    step={10}
+                                    className="w-full"
+                                />
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Data Management */}
+                <Card className="rounded-none border-border shadow-none">
+                    <CardHeader className="border-b border-border bg-muted/20">
+                    <CardTitle className="flex items-center gap-2 font-heading uppercase text-lg">
+                        <Database className="h-5 w-5" />
+                        Data
+                    </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4 pt-6">
+                    <Button variant="outline" className="w-full justify-start rounded-none border-border uppercase text-xs font-bold h-10">
+                        <Download className="mr-2 h-4 w-4" />
+                        Export All Logs (CSV)
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10 rounded-none uppercase text-xs font-bold h-10"
+                    >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Clear Local Cache
+                    </Button>
+                    </CardContent>
+                </Card>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Data Management */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Database className="h-5 w-5" />
-            Data Management
-          </CardTitle>
-          <CardDescription>Manage your data, exports, and privacy settings</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Button variant="outline" className="w-full justify-start bg-transparent">
-            <Download className="mr-2 h-4 w-4" />
-            Export All Data
-          </Button>
-          <Button
-            variant="outline"
-            className="w-full justify-start text-destructive hover:text-destructive bg-transparent"
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            Clear Cache
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Save Button */}
-      <div className="flex justify-end gap-2">
-        <Button variant="outline">Reset to Defaults</Button>
-        <Button onClick={() => toast.success("Preferences Saved", { description: "Your settings have been saved to the cloud." })}>
-          Save Preferences
-        </Button>
       </div>
     </div>
   )

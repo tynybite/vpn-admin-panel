@@ -8,9 +8,8 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Shield, Eye, EyeOff, Loader2 } from "lucide-react"
+import { Shield, Eye, EyeOff, Loader2, ArrowLeft, Lock, Fingerprint } from "lucide-react"
 import { authService } from "@/lib/auth-service"
 import { toast } from "sonner"
 
@@ -112,93 +111,223 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0a0a1f] via-[#1a1a3f] to-[#0f0f2a] p-4">
-      <div className="gradient-mesh absolute inset-0 opacity-40" />
+    <div className="min-h-screen flex cyber-mesh-dark cyber-scanlines relative overflow-hidden">
+      {/* Animated Gradient Orbs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div 
+          className="absolute w-[500px] h-[500px] rounded-full opacity-30 blur-[100px] animate-float"
+          style={{
+            background: 'radial-gradient(circle, rgba(0, 255, 229, 0.4) 0%, transparent 70%)',
+            top: '-10%',
+            right: '-10%',
+          }}
+        />
+        <div 
+          className="absolute w-[400px] h-[400px] rounded-full opacity-25 blur-[80px] animate-float animation-delay-500"
+          style={{
+            background: 'radial-gradient(circle, rgba(139, 92, 246, 0.5) 0%, transparent 70%)',
+            bottom: '10%',
+            left: '-5%',
+          }}
+        />
+        <div 
+          className="absolute w-[300px] h-[300px] rounded-full opacity-20 blur-[60px]"
+          style={{
+            background: 'radial-gradient(circle, rgba(255, 107, 107, 0.4) 0%, transparent 70%)',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+          }}
+        />
+      </div>
 
-      <Card className="w-full max-w-md relative z-10 border-2">
-        <CardHeader className="space-y-4 text-center">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center">
-            <Shield className="h-8 w-8 text-white" />
-          </div>
-          <div>
-            <CardTitle className="text-3xl font-bold">Welcome Back</CardTitle>
-            <CardDescription className="text-base mt-2">Sign in to access the FreeShield VPN Pro admin panel</CardDescription>
-          </div>
-        </CardHeader>
+      {/* Floating Particles */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {[...Array(15)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-1 h-1 bg-[#00FFE5] rounded-full animate-float"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 5}s`,
+              animationDuration: `${4 + Math.random() * 4}s`,
+              opacity: 0.3 + Math.random() * 0.3,
+            }}
+          />
+        ))}
+      </div>
 
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
+      {/* Left Side - Branding (hidden on mobile) */}
+      <div className="hidden lg:flex lg:w-1/2 relative z-10 flex-col justify-between p-12">
+        <div>
+          <Link href="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span className="text-sm">Back to home</span>
+          </Link>
+        </div>
+
+        <div className="space-y-8">
+          {/* Logo */}
+          <div className="w-20 h-20 relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#00FFE5]/20 to-[#8B5CF6]/20 rounded-2xl rotate-12 animate-pulse-glow" />
+            <div className="absolute inset-1 bg-[#16161D] rounded-xl rotate-12" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Shield className="w-10 h-10 text-[#00FFE5] drop-shadow-[0_0_20px_rgba(0,255,229,0.5)]" />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h1 className="text-5xl font-bold text-white leading-tight">
+              Enter The
+              <br />
+              <span className="cyber-gradient-text">CyberVault</span>
+            </h1>
+            <p className="text-xl text-gray-400 max-w-md">
+              Access the control center. Manage servers, monitor connections, and secure your network.
+            </p>
+          </div>
+
+          {/* Features */}
+          <div className="space-y-4 pt-8">
+            {[
+              { icon: Lock, text: "End-to-end encrypted" },
+              { icon: Fingerprint, text: "Biometric authentication" },
+              { icon: Shield, text: "Enterprise-grade security" },
+            ].map((item, index) => (
+              <div key={index} className="flex items-center gap-3 text-gray-500">
+                <div className="w-8 h-8 rounded-lg bg-gray-800/50 border border-gray-700/50 flex items-center justify-center">
+                  <item.icon className="w-4 h-4 text-[#00FFE5]" />
+                </div>
+                <span className="text-sm">{item.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="text-gray-600 text-sm">
+          © {new Date().getFullYear()} Velocity VPN. All rights reserved.
+        </div>
+      </div>
+
+      {/* Right Side - Login Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-12 relative z-10">
+        <div className="w-full max-w-md space-y-8">
+          {/* Mobile Back Link */}
+          <Link href="/" className="lg:hidden inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span className="text-sm">Back to home</span>
+          </Link>
+
+          {/* Card */}
+          <div className="bg-[#16161D]/80 backdrop-blur-xl border border-gray-800 rounded-2xl p-8 shadow-2xl">
+            {/* Header */}
+            <div className="text-center space-y-4 mb-8">
+              {/* Mobile Logo */}
+              <div className="lg:hidden mx-auto w-16 h-16 relative mb-6">
+                <div className="absolute inset-0 bg-gradient-to-br from-[#00FFE5]/20 to-[#8B5CF6]/20 rounded-xl rotate-12" />
+                <div className="absolute inset-1 bg-[#16161D] rounded-lg rotate-12" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Shield className="w-8 h-8 text-[#00FFE5]" />
+                </div>
+              </div>
+
+              <h2 className="text-2xl font-bold text-white">Welcome Back</h2>
+              <p className="text-gray-400 text-sm">Sign in to access your dashboard</p>
+            </div>
+
+            {/* Error Message */}
             {error && (
-              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
+              <div className="mb-6 p-4 bg-[#FF6B6B]/10 border border-[#FF6B6B]/20 rounded-lg text-[#FF6B6B] text-sm flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-[#FF6B6B]/10 flex items-center justify-center flex-shrink-0">
+                  <span className="text-lg">!</span>
+                </div>
                 {error}
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
-              <Input id="email" name="email" type="email" placeholder="admin@cloudvpn.com" required className="h-11" />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-gray-300 text-sm">Email Address</Label>
                 <Input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="admin@cloudvpn.com"
                   required
-                  className="h-11 pr-10"
+                  className="h-12 bg-gray-900/50 border-gray-800 text-white placeholder:text-gray-600 focus:border-[#00FFE5] focus:ring-[#00FFE5]/20"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
               </div>
-            </div>
 
-            <div className="flex items-center justify-between mb-4" >
-              <div className="flex items-center space-x-2">
-                <Checkbox id="remember" />
-                <label
-                  htmlFor="remember"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  Remember me
-                </label>
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-gray-300 text-sm">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    required
+                    className="h-12 bg-gray-900/50 border-gray-800 text-white placeholder:text-gray-600 focus:border-[#00FFE5] focus:ring-[#00FFE5]/20 pr-12"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
               </div>
-              <Link href="/forgot-password" className="text-sm text-primary hover:underline">
-                Forgot password?
-              </Link>
-            </div>
-          </CardContent>
 
-          <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full h-11 text-base" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                "Sign In"
-              )}
-            </Button>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Checkbox id="remember" className="border-gray-700 data-[state=checked]:bg-[#00FFE5] data-[state=checked]:border-[#00FFE5]" />
+                  <label htmlFor="remember" className="text-sm text-gray-400">
+                    Remember me
+                  </label>
+                </div>
+                <Link href="/forgot-password" className="text-sm text-[#00FFE5] hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
 
-            <div className="relative">
+              <Button
+                type="submit"
+                className="w-full h-12 bg-[#00FFE5] text-[#0A0A0F] hover:bg-[#00FFE5]/90 font-semibold transition-all duration-300 hover:shadow-[0_0_30px_rgba(0,255,229,0.3)]"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  "Sign In"
+                )}
+              </Button>
+            </form>
+
+            {/* Divider */}
+            <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
+                <span className="w-full border-t border-gray-800" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                <span className="bg-[#16161D] px-3 text-gray-500">Or continue with</span>
               </div>
             </div>
 
-            <Button variant="outline" type="button" className="w-full h-11" onClick={handleGoogleLogin} disabled={isLoading}>
-              <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+            {/* Google Sign In */}
+            <Button
+              variant="outline"
+              type="button"
+              className="w-full h-12 bg-transparent border-gray-800 text-gray-300 hover:bg-gray-800/50 hover:border-gray-700"
+              onClick={handleGoogleLogin}
+              disabled={isLoading}
+            >
+              <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                   fill="#4285F4"
@@ -218,15 +347,14 @@ export default function LoginPage() {
               </svg>
               Sign in with Google
             </Button>
-            <Link
-              href="/"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors text-center"
-            >
-              Back to home
-            </Link>
-          </CardFooter>
-        </form>
-      </Card>
+          </div>
+
+          {/* Footer */}
+          <p className="text-center text-gray-600 text-sm">
+            Protected by enterprise-grade encryption
+          </p>
+        </div>
+      </div>
     </div>
   )
 }

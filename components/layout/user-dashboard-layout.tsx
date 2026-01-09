@@ -227,7 +227,7 @@ export function UserDashboardLayout({ children }: UserDashboardLayoutProps) {
                         <div className="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center">
                             <Shield className="h-6 w-6 text-white" />
                         </div>
-                        {!isCollapsed && <span className="text-xl font-bold gradient-text">FreeShield VPN</span>}
+                        {!isCollapsed && <span className="text-xl font-bold gradient-text">Velocity VPN</span>}
                     </div>
                 </div>
             )}
@@ -321,7 +321,7 @@ export function UserDashboardLayout({ children }: UserDashboardLayoutProps) {
                             <div className="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center">
                                 <Shield className="h-6 w-6 text-white" />
                             </div>
-                            <span className="text-xl font-bold gradient-text">Freeshield VPN</span>
+                            <span className="text-xl font-bold gradient-text">Velocity VPN</span>
                         </SheetTitle>
                     </SheetHeader>
                     <Suspense fallback={<div />}>
