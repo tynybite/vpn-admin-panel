@@ -63,7 +63,6 @@ export async function POST(request: Request) {
         })
 
         return NextResponse.json({
-            id: plan.id,
             ...plan,
             createdAt: plan.createdAt.toISOString(),
             updatedAt: plan.updatedAt.toISOString(),
