@@ -1,16 +1,14 @@
-import { adminFirestore } from "@/lib/firebase/admin";
-import { Timestamp } from "firebase-admin/firestore";
+import { prisma } from "@/lib/db/prisma"
 
 export interface LogEntry {
-    adminId: string;
-    adminEmail: string;
-    action: string;
-    targetId?: string | null;
-    targetName?: string | null; // Human readable name of the resource
-    targetType: string;
-    details: string;
-    metadata?: any;
-    timestamp: Timestamp;
+    adminId: string
+    adminEmail: string
+    action: string
+    targetId?: string | null
+    targetName?: string | null
+    targetType: string
+    details: string
+    metadata?: any
 }
 
 export async function logAdminAction(
@@ -23,23 +21,22 @@ export async function logAdminAction(
     targetName?: string,
     metadata?: any
 ) {
-    const logData: LogEntry = {
-        adminId,
-        adminEmail,
-        action,
-        targetType,
-        targetId: targetId || null,
-        targetName: targetName || null,
-        details,
-        metadata: metadata || null,
-        timestamp: Timestamp.now(),
-    };
-
     try {
-        await adminFirestore.collection("activity_logs").add(logData);
-        console.log(`[Admin Log] ${action} on ${targetType}: ${details}`);
+        await prisma.activityLog.create({
+            data: {
+                adminId,
+                adminEmail,
+                action,
+                targetType,
+                targetId: targetId || null,
+                targetName: targetName || null,
+                details,
+                metadata: metadata || null,
+            },
+        })
+        console.log(`[Admin Log] ${action} on ${targetType}: ${details}`)
     } catch (error) {
-        console.error("Failed to write admin log:", error);
-        throw error; // Propagate error to API handler
+        console.error("Failed to write admin log:", error)
+        // Don't throw - logging failures shouldn't break the main operation
     }
 }

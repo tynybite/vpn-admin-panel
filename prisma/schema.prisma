@@ -1,0 +1,202 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ======================
+// VPN Server Configuration
+// ======================
+model Server {
+  id            String   @id @default(cuid())
+  name          String   // User-friendly name like "Germany Frankfurt 01"
+  country       String
+  flag          String   // Country flag emoji
+  ip            String   // Server IP address
+  port          Int      @default(1194)
+  protocol      String   @default("udp") // "udp" | "tcp" | "both"
+  tier          String   @default("free") // "free" | "premium"
+  maxCapacity   Int      @default(100)
+  streaming     Boolean  @default(false)
+  p2p           Boolean  @default(false)
+  notes         String?  // Internal admin notes
+  ovpnFilePath  String?  // Path to OVPN file on Plesk filesystem
+  status        String   @default("online") // "online" | "offline" | "maintenance"
+  isActive      Boolean  @default(true)
+  username      String?  // VPN auth username
+  password      String?  // VPN auth password (consider secrets manager later)
+  load          Int      @default(0) // Current load percentage
+  currentUsers  Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  vpnSessions     VpnSession[]
+  temporaryAccess TemporaryAccess[]
+
+  @@index([country])
+  @@index([tier])
+  @@index([status])
+  @@index([isActive])
+}
+
+// ======================
+// User (Mirrors Firebase Auth)
+// ======================
+model User {
+  id            String   @id // Firebase UID - NOT auto-generated!
+  email         String?  @unique
+  displayName   String?
+  photoURL      String?
+  role          String   @default("user") // "user" | "admin"
+  plan          String   @default("free") // "free" | "premium"
+  status        String   @default("active") // "active" | "suspended" | "deleted"
+  bio           String?
+  location      String?
+  phone         String?
+  provider      String?  // "anonymous" | "google.com" | "password"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  vpnSessions     VpnSession[]
+  activityLogs    ActivityLog[]      @relation("AdminLogs")
+  temporaryAccess TemporaryAccess[]
+
+  @@index([email])
+  @@index([role])
+  @@index([status])
+  @@index([plan])
+}
+
+// ======================
+// VPN Sessions
+// ======================
+model VpnSession {
+  sessionId   String   @id
+  userId      String
+  serverId    String
+  expiresAt   Int      // Unix timestamp
+  revoked     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([serverId])
+  @@index([expiresAt])
+}
+
+// ======================
+// Temporary Premium Access
+// ======================
+model TemporaryAccess {
+  id        String   @id @default(cuid())
+  userId    String
+  serverId  String?  // null = access to ALL premium servers
+  expiresAt DateTime
+  reason    String?  // Why access was granted
+  grantedBy String?  // Admin who granted access
+  createdAt DateTime @default(now())
+
+  // Relations
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  server Server? @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, serverId])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ======================
+// Admin Activity Logs
+// ======================
+model ActivityLog {
+  id          String   @id @default(cuid())
+  adminId     String
+  adminEmail  String
+  action      String   // "CREATE" | "UPDATE" | "DELETE" | "BAN" | etc.
+  targetType  String   // "SERVER" | "USER" | "CONFIG" | etc.
+  targetId    String?
+  targetName  String?  // Human-readable name of the resource
+  details     String
+  metadata    Json?    // Additional context
+  timestamp   DateTime @default(now())
+
+  // Relations
+  admin User @relation("AdminLogs", fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([action])
+  @@index([targetType])
+  @@index([timestamp])
+}
+
+// ======================
+// App Settings (Key-Value Store)
+// ======================
+model AppSetting {
+  key       String   @id
+  value     Json     // Flexible JSON storage
+  updatedAt DateTime @updatedAt
+  updatedBy String?  // Admin who last updated
+}
+
+// ======================
+// Notifications Log
+// ======================
+model NotificationLog {
+  id          String   @id @default(cuid())
+  type        String   // "broadcast" | "targeted" | "automated"
+  title       String
+  body        String
+  targetUsers String[] // Array of user IDs or ["all"]
+  sentBy      String   // Admin who sent
+  sentAt      DateTime @default(now())
+  success     Int      @default(0)
+  failed      Int      @default(0)
+}
+
+// ======================
+// Subscriptions (Optional - for tracking)
+// ======================
+model Subscription {
+  id              String    @id @default(cuid())
+  userId          String
+  planId          String
+  status          String    // "active" | "cancelled" | "expired"
+  startDate       DateTime
+  endDate         DateTime?
+  paymentProvider String?   // "stripe" | "google_play" | "manual"
+  transactionId   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+// ======================
+// Plans (Subscription Products)
+// ======================
+model Plan {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  price           Float?
+  currency        String?  @default("USD")
+  duration        String?  // "monthly" | "yearly" | "lifetime"
+  googleProductId String?
+  appleProductId  String?
+  features        Json?    // List of features
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}

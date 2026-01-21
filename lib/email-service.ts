@@ -1,6 +1,8 @@
 
 import nodemailer from 'nodemailer';
-import { adminDb } from '@/lib/internal/firebase';
+import { prisma } from "@/lib/db/prisma"
+
+// ... types ...
 
 interface EmailTemplateParams {
     username: string;
@@ -18,12 +20,14 @@ interface SmtpConfig {
 
 async function getSmtpConfig(): Promise<SmtpConfig | null> {
     try {
-        const doc = await adminDb.collection('settings').doc('smtp').get();
-        if (!doc.exists) return null;
-        return doc.data() as SmtpConfig;
+        const setting = await prisma.appSetting.findUnique({
+            where: { key: "smtp" },
+        })
+        if (!setting || !setting.value) return null
+        return setting.value as unknown as SmtpConfig
     } catch (error) {
-        console.error('Error fetching SMTP config:', error);
-        return null;
+        console.error("Error fetching SMTP config:", error)
+        return null
     }
 }
 function getTemplateContext(scenario: EmailTemplateParams['scenario']) {

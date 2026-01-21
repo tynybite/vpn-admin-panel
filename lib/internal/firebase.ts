@@ -12,14 +12,13 @@ if (!admin.apps.length) {
     try {
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount),
-            storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
         })
     } catch (error) {
         console.error("Firebase admin initialization error", error)
     }
 }
 
+// Only export auth-related services
+// Storage and Firestore are now handled by Prisma + Plesk filesystem
 export const adminAuth = admin.auth()
-export const adminDb = admin.firestore()
 export const adminMessaging = admin.messaging()
-export const adminStorage = admin.storage()

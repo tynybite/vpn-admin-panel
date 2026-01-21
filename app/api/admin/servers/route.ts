@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
-import { adminDb, adminStorage } from "@/lib/internal/firebase"
+import { prisma } from "@/lib/db/prisma"
+import { saveOvpnFile, deleteOvpnFile } from "@/lib/storage/plesk"
 import { getUserFromRequest } from "@/lib/internal/permissions"
 import { logAdminAction } from "@/lib/logger"
 
@@ -17,10 +18,18 @@ export async function GET(request: Request) {
     if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
     try {
-        const serversRef = adminDb.collection("servers")
-        const snapshot = await serversRef.get()
-        const servers = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
-        return NextResponse.json(servers)
+        const servers = await prisma.server.findMany({
+            orderBy: { createdAt: "desc" },
+        })
+
+        // Transform dates to ISO strings for JSON serialization
+        const serializedServers = servers.map((server: { createdAt: { toISOString: () => any }; updatedAt: { toISOString: () => any } }) => ({
+            ...server,
+            createdAt: server.createdAt.toISOString(),
+            updatedAt: server.updatedAt.toISOString(),
+        }))
+
+        return NextResponse.json(serializedServers)
     } catch (error) {
         console.error("Admin Servers GET Error:", error)
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
@@ -35,43 +44,64 @@ export async function POST(request: Request) {
         const body = await request.json()
         const { ovpnFileContent, ovpnFileName, ...serverData } = body
 
-        // 1. Create Server Record
-        const serverRef = await adminDb.collection("servers").add({
-            ...serverData,
-            isActive: serverData.isActive ?? true, // Default to true using the correct field name
-            tier: serverData.tier || "free",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-        })
-
-        const serverId = serverRef.id
-
-        // 2. Handle OVPN File Upload (Backend mediated)
+        // 1. Handle OVPN File Upload first (to get path)
+        let ovpnFilePath: string | undefined
         if (ovpnFileContent && ovpnFileName) {
-            const bucket = adminStorage.bucket()
-            const filePath = `ovpn-files/${serverId}/${ovpnFileName}`
-            const file = bucket.file(filePath)
-
-            // Convert base64 to buffer if it's sent as base64
-            const buffer = Buffer.from(ovpnFileContent, "base64")
-            await file.save(buffer, {
-                metadata: { contentType: "application/x-openvpn-profile" }
-            })
-
-            // Get public URL or just store the path
-            // Spec says "no OVPN URLs exposed", but admin might need it for management or we use paths internaly.
-            // For Phase 1, we'll store the download URL for internal admin use if needed, but mobile won't see it.
-            const [url] = await file.getSignedUrl({
-                action: "read",
-                expires: "03-01-2500", // "Forever" for now
-            })
-
-            await serverRef.update({ ovpnFileUrl: url, ovpnFilePath: filePath })
+            // Generate a temporary ID for file organization
+            const tempId = `temp_${Date.now()}`
+            ovpnFilePath = await saveOvpnFile(tempId, ovpnFileName, ovpnFileContent)
         }
 
-        await logAdminAction(admin.uid as string, admin.email as string, "CREATE", "SERVER", `Created server ${serverData.name}`, serverId)
+        // 2. Create Server Record in PostgreSQL
+        const server = await prisma.server.create({
+            data: {
+                name: serverData.name,
+                country: serverData.country,
+                flag: serverData.flag || "🌐",
+                ip: serverData.ip,
+                port: serverData.port || 1194,
+                protocol: serverData.protocol || "udp",
+                tier: serverData.tier || "free",
+                maxCapacity: serverData.maxCapacity || 100,
+                streaming: serverData.streaming || false,
+                p2p: serverData.p2p || false,
+                notes: serverData.notes || null,
+                ovpnFilePath: ovpnFilePath || null,
+                status: serverData.status || "online",
+                isActive: serverData.isActive ?? true,
+                username: serverData.username || null,
+                password: serverData.password || null,
+                load: serverData.load || 0,
+                currentUsers: serverData.currentUsers || 0,
+            },
+        })
 
-        return NextResponse.json({ id: serverId }, { status: 201 })
+        // 3. If we created a temp file, rename directory to actual server ID
+        if (ovpnFilePath && ovpnFileName) {
+            // Move file to correct location with server ID
+            const newPath = await saveOvpnFile(server.id, ovpnFileName, ovpnFileContent)
+            await prisma.server.update({
+                where: { id: server.id },
+                data: { ovpnFilePath: newPath },
+            })
+            // Clean up temp file
+            try {
+                await deleteOvpnFile(ovpnFilePath)
+            } catch {
+                // Ignore cleanup errors
+            }
+        }
+
+        await logAdminAction(
+            admin.uid as string,
+            admin.email as string,
+            "CREATE",
+            "SERVER",
+            `Created server ${serverData.name}`,
+            server.id
+        )
+
+        return NextResponse.json({ id: server.id }, { status: 201 })
     } catch (error) {
         console.error("Admin Servers POST Error:", error)
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
@@ -88,32 +118,47 @@ export async function PUT(request: Request) {
 
         if (!id) return NextResponse.json({ error: "Missing ID" }, { status: 400 })
 
-        const serverRef = adminDb.collection("servers").doc(id)
-
-        // Update basic data
-        await serverRef.update({
-            ...serverData,
-            updatedAt: new Date().toISOString(),
+        // Check if server exists
+        const existingServer = await prisma.server.findUnique({
+            where: { id },
         })
 
-        // Handle OVPN Update
-        if (ovpnFileContent && ovpnFileName) {
-            const bucket = adminStorage.bucket()
-            const filePath = `ovpn-files/${id}/${ovpnFileName}`
-            const file = bucket.file(filePath)
-
-            const buffer = Buffer.from(ovpnFileContent, "base64")
-            await file.save(buffer)
-
-            const [url] = await file.getSignedUrl({
-                action: "read",
-                expires: "03-01-2500",
-            })
-
-            await serverRef.update({ ovpnFileUrl: url, ovpnFilePath: filePath })
+        if (!existingServer) {
+            return NextResponse.json({ error: "Server not found" }, { status: 404 })
         }
 
-        await logAdminAction(admin.uid as string, admin.email as string, "UPDATE", "SERVER", `Updated server ${id}`, id)
+        // Handle OVPN Update
+        let ovpnFilePath = existingServer.ovpnFilePath
+        if (ovpnFileContent && ovpnFileName) {
+            // Delete old file if exists
+            if (existingServer.ovpnFilePath) {
+                try {
+                    await deleteOvpnFile(existingServer.ovpnFilePath)
+                } catch {
+                    // Ignore delete errors
+                }
+            }
+            // Save new file
+            ovpnFilePath = await saveOvpnFile(id, ovpnFileName, ovpnFileContent)
+        }
+
+        // Update server record
+        await prisma.server.update({
+            where: { id },
+            data: {
+                ...serverData,
+                ovpnFilePath,
+            },
+        })
+
+        await logAdminAction(
+            admin.uid as string,
+            admin.email as string,
+            "UPDATE",
+            "SERVER",
+            `Updated server ${id}`,
+            id
+        )
 
         return NextResponse.json({ success: true })
     } catch (error) {
@@ -131,22 +176,32 @@ export async function DELETE(request: Request) {
         const id = searchParams.get("id")
         if (!id) return NextResponse.json({ error: "Missing ID" }, { status: 400 })
 
-        const serverRef = adminDb.collection("servers").doc(id)
-        const serverDoc = await serverRef.get()
+        // Find server to get file path
+        const server = await prisma.server.findUnique({
+            where: { id },
+        })
 
-        if (serverDoc.exists) {
-            const data = serverDoc.data()
-            if (data?.ovpnFilePath) {
-                try {
-                    await adminStorage.bucket().file(data.ovpnFilePath).delete()
-                } catch (e) {
-                    console.warn("Could not delete OVPN file from storage during server deletion", e)
-                }
+        if (server?.ovpnFilePath) {
+            try {
+                await deleteOvpnFile(server.ovpnFilePath)
+            } catch (e) {
+                console.warn("Could not delete OVPN file during server deletion", e)
             }
         }
 
-        await serverRef.delete()
-        await logAdminAction(admin.uid as string, admin.email as string, "DELETE", "SERVER", `Deleted server ${id}`, id)
+        // Delete server record
+        await prisma.server.delete({
+            where: { id },
+        })
+
+        await logAdminAction(
+            admin.uid as string,
+            admin.email as string,
+            "DELETE",
+            "SERVER",
+            `Deleted server ${id}`,
+            id
+        )
 
         return NextResponse.json({ success: true })
     } catch (error) {

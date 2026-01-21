@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { adminDb } from "@/lib/internal/firebase"
+import { prisma } from "@/lib/db/prisma"
 import { getUserFromRequest } from "@/lib/internal/permissions"
 import { logAdminAction } from "@/lib/logger"
 
@@ -9,21 +9,23 @@ async function checkAdmin(request: Request) {
     return user
 }
 
-const DOC_KEYS = ["features", "vpn", "ui", "ads", "version"]
+const CONFIG_KEYS = ["features", "vpn", "ui", "ads", "version"]
 
 export async function GET(request: Request) {
     const admin = await checkAdmin(request)
     if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
     try {
-        const configCollection = adminDb.collection("config")
-        const docs = await Promise.all(DOC_KEYS.map((key) => configCollection.doc(key).get()))
-
-        const fullConfig: any = {}
-        docs.forEach((doc, index) => {
-            if (doc.exists) {
-                fullConfig[DOC_KEYS[index]] = doc.data()
+        const settings = await prisma.appSetting.findMany({
+            where: {
+                key: { in: CONFIG_KEYS.map(k => `config_${k}`) }
             }
+        })
+
+        const fullConfig: Record<string, any> = {}
+        settings.forEach((setting: { key: string; value: any }) => {
+            const key = setting.key.replace("config_", "")
+            fullConfig[key] = setting.value
         })
 
         return NextResponse.json(fullConfig)
@@ -39,24 +41,31 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json()
-        const configCollection = adminDb.collection("config")
-        const batch = adminDb.batch()
 
+        // Upsert each config key
         for (const key of Object.keys(body)) {
-            if (DOC_KEYS.includes(key)) {
-                const docRef = configCollection.doc(key)
-                batch.set(
-                    docRef,
-                    {
-                        ...body[key],
-                        updatedAt: new Date().toISOString(),
+            if (CONFIG_KEYS.includes(key)) {
+                await prisma.appSetting.upsert({
+                    where: { key: `config_${key}` },
+                    update: {
+                        value: {
+                            ...body[key],
+                            updatedAt: new Date().toISOString(),
+                        },
+                        updatedBy: admin.uid as string,
                     },
-                    { merge: true }
-                )
+                    create: {
+                        key: `config_${key}`,
+                        value: {
+                            ...body[key],
+                            updatedAt: new Date().toISOString(),
+                        },
+                        updatedBy: admin.uid as string,
+                    },
+                })
             }
         }
 
-        await batch.commit()
         await logAdminAction(admin.uid as string, admin.email as string, "UPDATE", "CONFIG", "Updated system configuration")
 
         return NextResponse.json({ success: true })

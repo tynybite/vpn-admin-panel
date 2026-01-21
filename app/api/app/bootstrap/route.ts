@@ -1,21 +1,19 @@
 import { NextResponse } from "next/server"
-import { adminDb } from "@/lib/internal/firebase"
+import { prisma } from "@/lib/db/prisma"
 
 export async function GET() {
     try {
-        const configCollection = adminDb.collection("config")
-
-        // Fetch relevant docs for bootstrap
-        const [featuresDoc, versionDoc] = await Promise.all([
-            configCollection.doc("features").get(),
-            configCollection.doc("version").get(),
+        // Fetch config from AppSettings
+        const [featuresSetting, versionSetting] = await Promise.all([
+            prisma.appSetting.findUnique({ where: { key: "config_features" } }),
+            prisma.appSetting.findUnique({ where: { key: "config_version" } }),
         ])
 
-        const featuresData = featuresDoc.exists ? featuresDoc.data() : { freeVpn: true, premiumVpn: false }
+        const featuresData = (featuresSetting?.value as any) || { freeVpn: true, premiumVpn: false }
+        const version = (versionSetting?.value as any) || { forceUpdate: false, message: null }
 
         // Remove ads from features as it has its own endpoint
-        const { ads, ...features } = featuresData as any
-        const version = versionDoc.exists ? versionDoc.data() : { forceUpdate: false, message: null }
+        const { ads, ...features } = featuresData
 
         return NextResponse.json({
             features,

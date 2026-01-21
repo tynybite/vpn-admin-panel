@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
-import { adminAuth, adminDb } from "@/lib/internal/firebase"
+import { prisma } from "@/lib/db/prisma"
+import { adminAuth } from "@/lib/internal/firebase"
 import { createToken } from "@/lib/internal/auth"
 
 export async function POST(request: Request) {
@@ -14,37 +15,39 @@ export async function POST(request: Request) {
         const decodedToken = await adminAuth.verifyIdToken(firebaseIdToken)
         const uid = decodedToken.uid
 
-        // Fetch or create user record in Firestore
-        const userDoc = await adminDb.collection("users").doc(uid).get()
-        let userData = userDoc.data()
+        // Check if user exists in PostgreSQL
+        let userData = await prisma.user.findUnique({
+            where: { id: uid },
+        })
 
         // Detect if this is an anonymous login
         const isAnonymous = decodedToken.firebase?.sign_in_provider === 'anonymous'
 
-        if (!userDoc.exists) {
-            // Initializing new user record
-            userData = {
-                uid,
-                email: decodedToken.email || "",
-                displayName: decodedToken.name || (isAnonymous ? "Anonymous User" : "Guest User"),
-                role: "user", // Default to user, NOT admin
-                plan: "free",
-                status: "active",
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            }
-            await adminDb.collection("users").doc(uid).set(userData)
+        if (!userData) {
+            // Create new user record in PostgreSQL
+            userData = await prisma.user.create({
+                data: {
+                    id: uid,
+                    email: decodedToken.email || null,
+                    displayName: decodedToken.name || (isAnonymous ? "Anonymous User" : "Guest User"),
+                    photoURL: decodedToken.picture as string || null,
+                    role: "user", // Default to user, NOT admin
+                    plan: "free",
+                    status: "active",
+                    provider: decodedToken.firebase?.sign_in_provider || "unknown",
+                },
+            })
         }
 
         // Ensure we respect the existing role from DB
-        const currentRole = userData?.role || "user"
+        const currentRole = userData.role || "user"
 
         // Issue backend JWT with standardized claims
         const payload = {
             uid,
             email: decodedToken.email,
-            role: currentRole, // Use actual role from DB
-            plan: userData?.plan || "free",
+            role: currentRole,
+            plan: userData.plan || "free",
         }
 
         const accessToken = await createToken(payload)
@@ -56,8 +59,8 @@ export async function POST(request: Request) {
                 email: payload.email,
                 role: payload.role,
                 plan: payload.plan,
-                displayName: userData?.displayName,
-                photoURL: userData?.photoURL || (decodedToken.picture as string),
+                displayName: userData.displayName,
+                photoURL: userData.photoURL || (decodedToken.picture as string),
             },
             expiresIn: 3600,
         })

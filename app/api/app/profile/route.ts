@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { adminDb } from "@/lib/internal/firebase"
+import { prisma } from "@/lib/db/prisma"
 import { getUserFromRequest } from "@/lib/internal/permissions"
 
 export async function GET(request: Request) {
@@ -9,24 +9,22 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
         }
 
-        const userDoc = await adminDb.collection("users").doc(user.uid as string).get()
+        const userData = await prisma.user.findUnique({
+            where: { id: user.uid as string },
+        })
 
-        if (!userDoc.exists) {
+        if (!userData) {
             return NextResponse.json({ error: "User not found" }, { status: 404 })
         }
 
-        const userData = userDoc.data()
-
         // Filter and return only safe public profile data
         const profile = {
-            uid: userData?.uid,
-            email: userData?.email,
-            displayName: userData?.displayName,
-            plan: userData?.plan || "free",
-            status: userData?.status || "active",
-            // Return expiry if available, otherwise null or calculate based on plan logic
-            expiresAt: userData?.expiresAt || null,
-            createdAt: userData?.createdAt,
+            uid: userData.id,
+            email: userData.email,
+            displayName: userData.displayName,
+            plan: userData.plan || "free",
+            status: userData.status || "active",
+            createdAt: userData.createdAt?.toISOString(),
         }
 
         return NextResponse.json(profile)
@@ -36,6 +34,35 @@ export async function GET(request: Request) {
     }
 }
 
+export async function PUT(request: Request) {
+    try {
+        const user = await getUserFromRequest(request)
+        if (!user || !user.uid) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        }
+
+        const body = await request.json()
+        const { bio, location, phone, displayName, photoURL } = body
+
+        // Validate if needed
+
+        const updatedUser = await prisma.user.update({
+            where: { id: user.uid as string },
+            data: {
+                bio: bio !== undefined ? bio : undefined,
+                location: location !== undefined ? location : undefined,
+                phone: phone !== undefined ? phone : undefined,
+                displayName: displayName !== undefined ? displayName : undefined,
+                photoURL: photoURL !== undefined ? photoURL : undefined,
+            },
+        })
+
+        return NextResponse.json({ success: true, user: updatedUser })
+    } catch (error) {
+        console.error("Error updating profile:", error)
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    }
+}
 
 export async function DELETE(request: Request) {
     try {
@@ -45,13 +72,10 @@ export async function DELETE(request: Request) {
         }
 
         // Soft delete: Update status to 'deleted'
-        await adminDb.collection("users").doc(user.uid as string).update({
-            status: "deleted",
-            deletedAt: new Date().toISOString()
+        await prisma.user.update({
+            where: { id: user.uid as string },
+            data: { status: "deleted" },
         })
-
-        // We do NOT delete from Firebase Auth to maintain the record as requested.
-        // The client should handle sign-out.
 
         return NextResponse.json({ success: true })
     } catch (error) {

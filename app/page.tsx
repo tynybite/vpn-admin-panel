@@ -11,8 +11,10 @@ export default function LandingPage() {
   const heroRef = useRef<HTMLElement>(null)
   const featuresRef = useRef<HTMLElement>(null)
   const [visibleFeatures, setVisibleFeatures] = useState<boolean[]>([])
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
     const handleScroll = () => {
       setScrollY(window.scrollY)
     }
@@ -83,9 +85,9 @@ export default function LandingPage() {
           />
         </div>
 
-        {/* Floating Particles */}
+        {/* Floating Particles - Client Only to prevent hydration mismatch */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(20)].map((_, i) => (
+          {mounted && [...Array(20)].map((_, i) => (
             <div
               key={i}
               className="absolute w-1 h-1 bg-[#00FFE5] rounded-full animate-float"

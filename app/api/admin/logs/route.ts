@@ -1,75 +1,80 @@
-import { NextResponse } from "next/server";
-import { adminDb } from "@/lib/internal/firebase";
-import { getAdminFromRequest } from "@/lib/auth-helper";
+import { NextResponse } from "next/server"
+import { prisma } from "@/lib/db/prisma"
+import { getAdminFromRequest } from "@/lib/auth-helper"
 
 export async function GET(request: Request) {
-    const admin = await getAdminFromRequest(request);
-    if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const admin = await getAdminFromRequest(request)
+    if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
     try {
-        const { searchParams } = new URL(request.url);
-        const limit = parseInt(searchParams.get("limit") || "50");
-        const action = searchParams.get("action");
-        const adminEmail = searchParams.get("admin");
-        const fromDate = searchParams.get("from");
-        const toDate = searchParams.get("to");
-        const cursor = searchParams.get("cursor");
+        const { searchParams } = new URL(request.url)
+        const limit = parseInt(searchParams.get("limit") || "50")
+        const action = searchParams.get("action")
+        const adminEmail = searchParams.get("admin")
+        const fromDate = searchParams.get("from")
+        const toDate = searchParams.get("to")
+        const cursor = searchParams.get("cursor")
 
-        let query = adminDb.collection("activity_logs")
-            .orderBy("timestamp", "desc")
-            .orderBy("__name__", "desc"); // Secondary sort for stable pagination
+        // Build WHERE clause
+        const where: any = {}
 
-        // ... filters ...
         if (action && action !== "all") {
-            query = query.where("action", "==", action);
+            where.action = action
         }
 
         if (adminEmail && adminEmail !== "all") {
-            query = query.where("adminEmail", "==", adminEmail);
+            where.adminEmail = adminEmail
         }
 
         if (fromDate) {
-            const start = new Date(fromDate);
-            query = query.where("timestamp", ">=", start);
+            where.timestamp = { ...where.timestamp, gte: new Date(fromDate) }
         }
 
         if (toDate) {
-            const end = new Date(toDate);
-            end.setDate(end.getDate() + 1);
-            query = query.where("timestamp", "<=", end);
+            const end = new Date(toDate)
+            end.setDate(end.getDate() + 1)
+            where.timestamp = { ...where.timestamp, lte: end }
         }
 
+        // Cursor-based pagination
+        let cursorObj: any = undefined
         if (cursor) {
-            const [timestampStr, id] = cursor.split('|');
-            if (timestampStr && id) {
-                query = query.startAfter(new Date(timestampStr), id);
-            }
+            cursorObj = { id: cursor }
         }
 
         // Fetch limit + 1 to check if there are more
-        const snapshot = await query.limit(limit + 1).get();
-        const rawDocs = snapshot.docs;
-        const hasMore = rawDocs.length > limit;
+        const logs = await prisma.activityLog.findMany({
+            where,
+            orderBy: { timestamp: "desc" },
+            take: limit + 1,
+            ...(cursorObj ? { cursor: cursorObj, skip: 1 } : {}),
+        })
 
-        // If hasMore, remove the extra doc
-        const docs = hasMore ? rawDocs.slice(0, limit) : rawDocs;
+        const hasMore = logs.length > limit
+        const resultLogs = hasMore ? logs.slice(0, limit) : logs
 
-        const logs = docs.map(doc => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                ...data,
-                timestamp: data.timestamp?.toDate().toISOString()
-            };
-        });
+        // Transform for response
+        const formattedLogs = resultLogs.map((log: { id: any; adminId: any; adminEmail: any; action: any; targetType: any; targetId: any; targetName: any; details: any; metadata: any; timestamp: { toISOString: () => any } }) => ({
+            id: log.id,
+            adminId: log.adminId,
+            adminEmail: log.adminEmail,
+            action: log.action,
+            targetType: log.targetType,
+            targetId: log.targetId,
+            targetName: log.targetName,
+            details: log.details,
+            metadata: log.metadata,
+            timestamp: log.timestamp.toISOString(),
+        }))
 
-        const lastDoc = docs[docs.length - 1];
-        const nextCursor = hasMore && lastDoc
-            ? `${lastDoc.data().timestamp?.toDate().toISOString()}|${lastDoc.id}`
-            : null;
+        const lastLog = resultLogs[resultLogs.length - 1]
+        const nextCursor = hasMore && lastLog ? lastLog.id : null
 
-        return NextResponse.json({ logs, nextCursor, hasMore });
+        return NextResponse.json({ logs: formattedLogs, nextCursor, hasMore })
     } catch (error) {
-        console.error("Error fetching logs:", error);
-        return NextResponse.json({ error: error instanceof Error ? error.message : "Internal Server Error" }, { status: 500 });
+        console.error("Error fetching logs:", error)
+        return NextResponse.json({
+            error: error instanceof Error ? error.message : "Internal Server Error"
+        }, { status: 500 })
     }
 }

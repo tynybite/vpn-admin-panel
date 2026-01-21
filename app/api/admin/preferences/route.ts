@@ -1,48 +1,59 @@
-import { NextResponse } from "next/server";
-import { adminDb } from "@/lib/internal/firebase";
-import { getAdminFromRequest } from "@/lib/auth-helper";
+import { NextResponse } from "next/server"
+import { prisma } from "@/lib/db/prisma"
+import { getAdminFromRequest } from "@/lib/auth-helper"
 
 export async function GET(request: Request) {
     try {
-        const admin = await getAdminFromRequest(request);
+        const admin = await getAdminFromRequest(request)
         if (!admin) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
         }
 
-        const doc = await adminDb.collection("users").doc(admin.uid).get();
-        const data = doc.data();
+        const user = await prisma.user.findUnique({
+            where: { id: admin.uid as string },
+            select: { bio: true, location: true, phone: true },
+        })
 
-        // Return preferences or defaults
+        // Return preferences from user record
         return NextResponse.json({
-            preferences: data?.preferences || {}
-        });
+            preferences: {
+                bio: user?.bio,
+                location: user?.location,
+                phone: user?.phone,
+            }
+        })
     } catch (error) {
-        console.error("Error fetching preferences:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        console.error("Error fetching preferences:", error)
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
     }
 }
 
 export async function POST(request: Request) {
     try {
-        const admin = await getAdminFromRequest(request);
+        const admin = await getAdminFromRequest(request)
         if (!admin) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
         }
 
-        const body = await request.json();
-        const { preferences } = body;
+        const body = await request.json()
+        const { preferences } = body
 
         if (!preferences) {
-            return NextResponse.json({ error: "Missing preferences data" }, { status: 400 });
+            return NextResponse.json({ error: "Missing preferences data" }, { status: 400 })
         }
 
-        await adminDb.collection("users").doc(admin.uid).set({
-            preferences: preferences
-        }, { merge: true });
+        await prisma.user.update({
+            where: { id: admin.uid as string },
+            data: {
+                bio: preferences.bio,
+                location: preferences.location,
+                phone: preferences.phone,
+            },
+        })
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ success: true })
     } catch (error) {
-        console.error("Error saving preferences:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        console.error("Error saving preferences:", error)
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
     }
 }

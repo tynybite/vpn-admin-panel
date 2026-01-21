@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { adminDb } from "@/lib/internal/firebase"
+import { prisma } from "@/lib/db/prisma"
 import { getUserFromRequest } from "@/lib/internal/permissions"
 
 // Helper to check admin permission
@@ -15,55 +15,54 @@ export async function GET(request: Request) {
 
     try {
         // 1. User Counts
-        const usersColl = adminDb.collection("users")
-        const totalUsersSnapshot = await usersColl.count().get()
-        const activeUsersSnapshot = await usersColl.where("status", "==", "active").count().get()
-        const premiumUsersSnapshot = await usersColl.where("plan", "==", "premium").count().get()
-        
+        const [totalUsers, activeUsers, premiumUsers] = await Promise.all([
+            prisma.user.count(),
+            prisma.user.count({ where: { status: "active" } }),
+            prisma.user.count({ where: { plan: "premium" } }),
+        ])
+
         // 2. Server Counts
-        const serversColl = adminDb.collection("servers")
-        const totalServersSnapshot = await serversColl.count().get()
-        const activeServersSnapshot = await serversColl.where("isActive", "==", true).count().get()
+        const [totalServers, activeServers] = await Promise.all([
+            prisma.server.count(),
+            prisma.server.count({ where: { isActive: true } }),
+        ])
 
         // 3. Recent Activity (Logs)
-        const logsSnapshot = await adminDb.collection("activity_logs")
-            .orderBy("timestamp", "desc")
-            .limit(5)
-            .get()
-        
-        const recentActivity = logsSnapshot.docs.map(doc => {
-            const data = doc.data()
-            return {
-                id: doc.id,
-                action: data.action,
-                user: data.targetId || data.adminEmail || "System", // Fallback for display
-                status: (data.action || "").includes("FAIL") ? "failed" : "success", // Simple heuristic
-                time: data.timestamp?.toDate().toISOString(),
-                details: data.details
-            }
+        const recentLogs = await prisma.activityLog.findMany({
+            orderBy: { timestamp: "desc" },
+            take: 5,
         })
 
-        // 4. Traffic/Performance (Mock for now as we don't have real metrics agent yet)
+        const recentActivity = recentLogs.map((log: { id: any; action: any; targetId: any; adminEmail: any; timestamp: { toISOString: () => any }; details: any }) => ({
+            id: log.id,
+            action: log.action,
+            user: log.targetId || log.adminEmail || "System",
+            status: (log.action || "").includes("FAIL") ? "failed" : "success",
+            time: log.timestamp.toISOString(),
+            details: log.details,
+        }))
+
+        // 4. Traffic/Performance (Mock for now - would come from real metrics)
         const trafficData = [
-             { name: "Mon", total: Math.floor(Math.random() * 5000) + 1000 },
-             { name: "Tue", total: Math.floor(Math.random() * 5000) + 1000 },
-             { name: "Wed", total: Math.floor(Math.random() * 5000) + 1000 },
-             { name: "Thu", total: Math.floor(Math.random() * 5000) + 1000 },
-             { name: "Fri", total: Math.floor(Math.random() * 5000) + 1000 },
-             { name: "Sat", total: Math.floor(Math.random() * 5000) + 1000 },
-             { name: "Sun", total: Math.floor(Math.random() * 5000) + 1000 },
+            { name: "Mon", total: Math.floor(Math.random() * 5000) + 1000 },
+            { name: "Tue", total: Math.floor(Math.random() * 5000) + 1000 },
+            { name: "Wed", total: Math.floor(Math.random() * 5000) + 1000 },
+            { name: "Thu", total: Math.floor(Math.random() * 5000) + 1000 },
+            { name: "Fri", total: Math.floor(Math.random() * 5000) + 1000 },
+            { name: "Sat", total: Math.floor(Math.random() * 5000) + 1000 },
+            { name: "Sun", total: Math.floor(Math.random() * 5000) + 1000 },
         ]
 
         return NextResponse.json({
             stats: {
-                totalUsers: totalUsersSnapshot.data().count,
-                activeUsers: activeUsersSnapshot.data().count,
-                premiumUsers: premiumUsersSnapshot.data().count,
-                totalServers: totalServersSnapshot.data().count,
-                activeServers: activeServersSnapshot.data().count,
+                totalUsers,
+                activeUsers,
+                premiumUsers,
+                totalServers,
+                activeServers,
             },
             recentActivity,
-            trafficData
+            trafficData,
         })
     } catch (error) {
         console.error("Admin Dashboard Stats Error:", error)

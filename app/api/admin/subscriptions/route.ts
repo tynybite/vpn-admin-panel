@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { adminDb } from "@/lib/internal/firebase"
+import { prisma } from "@/lib/db/prisma"
 import { getAdminFromRequest } from "@/lib/auth-helper"
 
 export async function GET(request: Request) {
@@ -9,10 +9,26 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
         }
 
-        const snapshot = await adminDb.collection("plans").get()
-        const plans = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        const plans = await prisma.plan.findMany({
+            orderBy: { createdAt: "desc" },
+        })
 
-        return NextResponse.json({ plans })
+        const formatted = plans.map((p: { id: any; name: any; description: any; price: any; currency: any; duration: any; googleProductId: any; appleProductId: any; features: any; isActive: any; createdAt: { toISOString: () => any }; updatedAt: { toISOString: () => any } }) => ({
+            id: p.id,
+            name: p.name,
+            description: p.description,
+            price: p.price,
+            currency: p.currency,
+            duration: p.duration,
+            googleProductId: p.googleProductId,
+            appleProductId: p.appleProductId,
+            features: p.features,
+            isActive: p.isActive,
+            createdAt: p.createdAt.toISOString(),
+            updatedAt: p.updatedAt.toISOString(),
+        }))
+
+        return NextResponse.json({ plans: formatted })
     } catch (error) {
         console.error("Error fetching subscriptions:", error)
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
@@ -28,20 +44,30 @@ export async function POST(request: Request) {
 
         const data = await request.json()
 
-        // Basic validation
         if (!data.name || !data.googleProductId) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
         }
 
-        const newPlan = {
-            ...data,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        }
+        const plan = await prisma.plan.create({
+            data: {
+                name: data.name,
+                description: data.description || null,
+                price: data.price || null,
+                currency: data.currency || "USD",
+                duration: data.duration || null,
+                googleProductId: data.googleProductId,
+                appleProductId: data.appleProductId || null,
+                features: data.features || null,
+                isActive: data.isActive ?? true,
+            },
+        })
 
-        const docRef = await adminDb.collection("plans").add(newPlan)
-
-        return NextResponse.json({ id: docRef.id, ...newPlan })
+        return NextResponse.json({
+            id: plan.id,
+            ...plan,
+            createdAt: plan.createdAt.toISOString(),
+            updatedAt: plan.updatedAt.toISOString(),
+        })
     } catch (error) {
         console.error("Error creating subscription:", error)
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
@@ -62,9 +88,9 @@ export async function PUT(request: Request) {
             return NextResponse.json({ error: "Missing Plan ID" }, { status: 400 })
         }
 
-        await adminDb.collection("plans").doc(id).update({
-            ...updateData,
-            updatedAt: new Date().toISOString()
+        await prisma.plan.update({
+            where: { id },
+            data: updateData,
         })
 
         return NextResponse.json({ success: true })
@@ -88,7 +114,7 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ error: "Missing Plan ID" }, { status: 400 })
         }
 
-        await adminDb.collection("plans").doc(id).delete()
+        await prisma.plan.delete({ where: { id } })
 
         return NextResponse.json({ success: true })
     } catch (error) {

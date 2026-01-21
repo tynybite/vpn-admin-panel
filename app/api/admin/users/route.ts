@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
-import { adminAuth, adminDb } from "@/lib/internal/firebase"
+import { prisma } from "@/lib/db/prisma"
+import { adminAuth } from "@/lib/internal/firebase"
 import { getUserFromRequest } from "@/lib/internal/permissions"
 import { logAdminAction } from "@/lib/logger"
 import { sendUserStatusEmail } from "@/lib/email-service"
@@ -19,11 +20,14 @@ async function getUserDetails(uid: string) {
             displayName: user.displayName || "User"
         }
     } catch (e) {
-        // Fallback to Firestore if Auth fails (unlikely for active users)
-        const doc = await adminDb.collection("users").doc(uid).get()
+        // Fallback to PostgreSQL if Auth fails
+        const dbUser = await prisma.user.findUnique({
+            where: { id: uid },
+            select: { email: true, displayName: true },
+        })
         return {
-            email: doc.data()?.email,
-            displayName: doc.data()?.displayName || "User"
+            email: dbUser?.email,
+            displayName: dbUser?.displayName || "User"
         }
     }
 }
@@ -33,63 +37,54 @@ export async function GET(request: Request) {
     if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
     try {
+        // Get users from Firebase Auth
         const listUsersResult = await adminAuth.listUsers(1000)
         const authUsers = listUsersResult.users
 
-        const userDocsSnapshot = await adminDb.collection("users").get()
-        const firestoreUsersMap: Record<string, any> = {}
-        userDocsSnapshot.forEach((doc) => {
-            firestoreUsersMap[doc.id] = doc.data()
+        // Get users from PostgreSQL
+        const dbUsers = await prisma.user.findMany()
+        const dbUsersMap: Record<string, any> = {}
+        dbUsers.forEach((u: { id: string | number }) => {
+            dbUsersMap[u.id] = u
         })
 
+        // Create map of auth users
         const authUsersMap: Record<string, any> = {}
         authUsers.forEach((u) => {
             authUsersMap[u.uid] = u
         })
 
-        const allUids = new Set([...Object.keys(firestoreUsersMap), ...Object.keys(authUsersMap)])
+        // Combine all UIDs
+        const allUids = new Set([...Object.keys(dbUsersMap), ...Object.keys(authUsersMap)])
 
         const users = Array.from(allUids).map((uid) => {
             const authUser = authUsersMap[uid]
-            const firestoreData = firestoreUsersMap[uid] || {}
+            const dbUser = dbUsersMap[uid] || {}
 
-            let status = firestoreData.status || "active"
+            let status = dbUser.status || "active"
             if (status === "trial") status = "deleted"
             if (authUser?.disabled) status = "suspended"
-            // If user exists in Firestore but not in Auth, they are likely deleted from Auth
+            // If user exists in DB but not in Auth, they are likely deleted from Auth
             if (!authUser && status !== "deleted") {
                 status = "deleted"
-            }
-
-            // Safely parse date helper
-            const safeDate = (val: any) => {
-                if (!val) return null
-                try {
-                    // Handle Firestore Timestamp (has toDate method)
-                    if (val && typeof val.toDate === 'function') {
-                        return val.toDate().toISOString()
-                    }
-                    // Handle numbers/strings
-                    const date = new Date(val)
-                    if (isNaN(date.getTime())) return null
-                    return date.toISOString()
-                } catch (e) {
-                    return null
-                }
             }
 
             return {
                 id: uid,
                 uid: uid,
-                name: authUser?.displayName || firestoreData.name || firestoreData.displayName || "Guest User",
-                email: authUser?.email || firestoreData.email || "No Email",
-                avatar: authUser?.photoURL || firestoreData.photoURL || "",
-                role: firestoreData.role || "user",
+                name: authUser?.displayName || dbUser.displayName || dbUser.name || "Guest User",
+                email: authUser?.email || dbUser.email || "No Email",
+                avatar: authUser?.photoURL || dbUser.photoURL || "",
+                role: dbUser.role || "user",
                 status: status,
-                plan: firestoreData.plan || firestoreData.tier || "free",
-                registrationDate: safeDate(authUser?.metadata.creationTime) || safeDate(firestoreData.createdAt),
-                lastLogin: safeDate(authUser?.metadata.lastSignInTime) || null,
-                provider: authUser?.providerData[0]?.providerId || firestoreData.provider || "anonymous",
+                plan: dbUser.plan || "free",
+                registrationDate: authUser?.metadata.creationTime
+                    ? new Date(authUser.metadata.creationTime).toISOString()
+                    : dbUser.createdAt?.toISOString() || null,
+                lastLogin: authUser?.metadata.lastSignInTime
+                    ? new Date(authUser.metadata.lastSignInTime).toISOString()
+                    : null,
+                provider: authUser?.providerData[0]?.providerId || dbUser.provider || "anonymous",
             }
         })
 
@@ -110,9 +105,26 @@ export async function PUT(request: Request) {
 
         if (!uid) return NextResponse.json({ error: "Missing UID" }, { status: 400 })
 
+        // Ensure user exists in PostgreSQL
+        const existingUser = await prisma.user.findUnique({ where: { id: uid } })
+        if (!existingUser) {
+            // Create user record if doesn't exist
+            await prisma.user.create({
+                data: {
+                    id: uid,
+                    status: "active",
+                    role: "user",
+                    plan: "free",
+                },
+            })
+        }
+
         // Handle different action types
         if (action === "ban") {
-            await adminDb.collection("users").doc(uid).set({ status: "suspended" }, { merge: true })
+            await prisma.user.update({
+                where: { id: uid },
+                data: { status: "suspended" },
+            })
             await adminAuth.updateUser(uid, { disabled: true })
             await logAdminAction(admin.uid as string, admin.email as string, "BAN", "USER", `Banned user ${uid}`, uid)
 
@@ -125,7 +137,10 @@ export async function PUT(request: Request) {
             }
         }
         else if (action === "unban") {
-            await adminDb.collection("users").doc(uid).set({ status: "active" }, { merge: true })
+            await prisma.user.update({
+                where: { id: uid },
+                data: { status: "active" },
+            })
             await adminAuth.updateUser(uid, { disabled: false })
             await logAdminAction(admin.uid as string, admin.email as string, "UNBAN", "USER", `Unbanned user ${uid}`, uid)
 
@@ -138,10 +153,11 @@ export async function PUT(request: Request) {
             }
         }
         else if (action === "set_plan") {
-            // payload: { plan: "premium" | "free" }
             const plan = payload?.plan || "free"
-            // Only update plan, preserve existing status (active/suspended/etc)
-            await adminDb.collection("users").doc(uid).set({ plan: plan }, { merge: true })
+            await prisma.user.update({
+                where: { id: uid },
+                data: { plan },
+            })
             await logAdminAction(admin.uid as string, admin.email as string, "UPDATE_PLAN", "USER", `Set user ${uid} plan to ${plan}`, uid)
 
             const targetUser = await getUserDetails(uid)
@@ -160,9 +176,11 @@ export async function PUT(request: Request) {
             }
         }
         else if (action === "set_role") {
-            // payload: { role: "admin" | "user" }
             const role = payload?.role || "user"
-            await adminDb.collection("users").doc(uid).set({ role }, { merge: true })
+            await prisma.user.update({
+                where: { id: uid },
+                data: { role },
+            })
             await logAdminAction(admin.uid as string, admin.email as string, "UPDATE_ROLE", "USER", `Set user ${uid} role to ${role}`, uid)
 
             const targetUser = await getUserDetails(uid)
@@ -181,10 +199,13 @@ export async function PUT(request: Request) {
             }
         }
         else {
-            // Fallback for direct updates if needed (legacy or other fields)
-            const { uid: _u, ...rest } = body
+            // Fallback for direct updates
+            const { uid: _u, action: _a, payload: _p, ...rest } = body
             if (Object.keys(rest).length > 0) {
-                await adminDb.collection("users").doc(uid).set(rest, { merge: true })
+                await prisma.user.update({
+                    where: { id: uid },
+                    data: rest,
+                })
             }
         }
 
@@ -222,8 +243,12 @@ export async function DELETE(request: Request) {
                     if (e.code !== 'auth/user-not-found') throw e
                 }
 
-                // Hard delete from Firestore
-                await adminDb.collection("users").doc(targetUid).delete()
+                // Hard delete from PostgreSQL
+                await prisma.user.delete({
+                    where: { id: targetUid },
+                }).catch(() => {
+                    // User might not exist in DB - that's okay
+                })
 
                 await logAdminAction(admin.uid as string, admin.email as string, "HARD_DELETE", "USER", `Hard deleted user ${targetUid}`, targetUid)
                 return { uid: targetUid, success: true }

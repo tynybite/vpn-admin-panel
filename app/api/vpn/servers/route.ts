@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { adminDb } from "@/lib/internal/firebase"
+import { prisma } from "@/lib/db/prisma"
 import { getUserFromRequest } from "@/lib/internal/permissions"
 
 export async function GET(request: Request) {
@@ -7,24 +7,36 @@ export async function GET(request: Request) {
         const user = await getUserFromRequest(request)
         const userPlan = (user?.plan as string) || "free"
 
-        const serversRef = adminDb.collection("servers")
-        const snapshot = await serversRef.where("isActive", "==", true).get()
+        // Fetch active servers from PostgreSQL
+        const servers = await prisma.server.findMany({
+            where: { isActive: true },
+            select: {
+                id: true,
+                country: true,
+                name: true,
+                tier: true,
+                load: true,
+                streaming: true,
+                p2p: true,
+            },
+        })
 
-        const servers = snapshot.docs
-            .map((doc) => ({ id: doc.id, ...doc.data() }))
-            // Filter out inactive servers is handled by the initial query
-            // We return ALL active servers so the client can show "locked" premium servers for upsell.
-            .map((server: any) => ({
-                id: server.id,
-                country: server.country || "Unknown",
-                city: server.name || "Unknown",
-                tier: server.tier || "free",
-                features: server.features || ["basic"],
-                load: server.load || 0,
-                latency: 100, // Dummy for now
-            }))
+        // Transform for mobile app - never expose sensitive data
+        const response = servers.map((server: { id: any; country: any; name: any; tier: any; streaming: any; p2p: any; load: any }) => ({
+            id: server.id,
+            country: server.country || "Unknown",
+            city: server.name || "Unknown",
+            tier: server.tier || "free",
+            features: [
+                "basic",
+                ...(server.streaming ? ["streaming"] : []),
+                ...(server.p2p ? ["p2p"] : []),
+            ],
+            load: server.load || 0,
+            latency: 100, // Placeholder - would be calculated dynamically
+        }))
 
-        return NextResponse.json(servers)
+        return NextResponse.json(response)
     } catch (error) {
         console.error("Servers API Error:", error)
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })

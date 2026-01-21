@@ -1,4 +1,4 @@
-import { auth, db } from "./firebase"
+import { auth } from "./firebase"
 import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
@@ -12,20 +12,6 @@ import {
   sendPasswordResetEmail,
   type User as FirebaseUser
 } from "firebase/auth"
-import {
-  doc,
-  setDoc,
-  getDoc,
-  updateDoc,
-  collection,
-  addDoc,
-  query,
-  orderBy,
-  limit,
-  getDocs,
-  serverTimestamp,
-  Timestamp
-} from "firebase/firestore"
 
 export interface User {
   uid: string
@@ -36,6 +22,7 @@ export interface User {
   bio?: string
   location?: string
   role?: "admin" | "user"
+  accessToken?: string // Backend JWT
 }
 
 export interface ActivityLog {
@@ -61,22 +48,37 @@ class AuthService {
       // Listen for real auth changes
       onAuthStateChanged(auth, async (user: FirebaseUser | null) => {
         if (user) {
-          // Fetch additional details from Firestore
-          const userDoc = await getDoc(doc(db, "users", user.uid))
-          const userData = userDoc.data()
+          // Sync with backend to get latest RBAC data and accessToken
+          try {
+             const token = await user.getIdToken()
+             const response = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ firebaseIdToken: token })
+             })
 
-          const appUser: User = {
-            uid: user.uid,
-            email: user.email || "",
-            displayName: user.displayName || "Admin User",
-            photoURL: user.photoURL || "/placeholder.svg?height=40&width=40",
-            phoneNumber: userData?.phoneNumber || "",
-            bio: userData?.bio || "",
-            location: userData?.location || "",
-            role: userData?.role || "user"
+             if (response.ok) {
+                const data = await response.json()
+                const userData = data.user
+                
+                const appUser: User = {
+                  uid: user.uid,
+                  email: user.email || "",
+                  displayName: userData.displayName || user.displayName || "User",
+                  photoURL: userData.photoURL || user.photoURL || "/placeholder.svg?height=40&width=40",
+                  role: userData.role || "user",
+                  bio: userData.bio || "",
+                  location: userData.location || "",
+                  phoneNumber: userData.phone || "", // Note: API returns 'phone' mapping to 'phoneNumber'
+                  accessToken: data.accessToken
+                }
+
+                this.currentUser = appUser
+                localStorage.setItem("auth_user", JSON.stringify(appUser))
+             }
+          } catch (e) {
+             console.error("Failed to sync user with backend", e)
           }
-          this.currentUser = appUser
-          localStorage.setItem("auth_user", JSON.stringify(appUser))
         } else {
           this.currentUser = null
           localStorage.removeItem("auth_user")
@@ -95,15 +97,8 @@ class AuthService {
   async signIn(email: string, password: string): Promise<User> {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
-      const user = userCredential.user
-
-      // Log simple sign in activity
-      await this.logActivity(user.uid, "Login", "Successful login via directory")
-
-      // Fetch or Initialize Firestore User Data
-      return this.handleUserLogin(user)
+      return this.handleUserLogin(userCredential.user)
     } catch (error: any) {
-      // Only log unexpected errors
       if (error.code !== 'auth/wrong-password' && error.code !== 'auth/user-not-found' && error.code !== 'auth/invalid-credential') {
         console.error("Sign in failed", error)
       }
@@ -119,12 +114,7 @@ class AuthService {
       })
 
       const userCredential = await signInWithPopup(auth, provider)
-      const user = userCredential.user
-
-      // Log activity
-      await this.logActivity(user.uid, "Login", "Successful login via Google")
-
-      return this.handleUserLogin(user)
+      return this.handleUserLogin(userCredential.user)
     } catch (error) {
       console.error("Google sign in failed", error)
       throw error
@@ -132,46 +122,43 @@ class AuthService {
   }
 
   private async handleUserLogin(user: FirebaseUser): Promise<User> {
-    // Fetch or Initialize Firestore User Data
-    const userRef = doc(db, "users", user.uid)
-    let userSnapshot = await getDoc(userRef)
-
-    if (!userSnapshot.exists()) {
-      // Create new user, default to 'user' role
-      await setDoc(userRef, {
-        email: user.email,
-        role: "user",
-        createdAt: serverTimestamp(),
-        photoURL: user.photoURL // Store photoURL in Firestore too if desired, though auth profile is primary
-      })
-      userSnapshot = await getDoc(userRef)
+    // Exchange Firebase Token for Backend Session
+    const token = await user.getIdToken()
+    const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firebaseIdToken: token })
+    })
+    
+    if (!response.ok) {
+        throw new Error("Failed to login to backend")
     }
-    const userData = userSnapshot.data()
+
+    const data = await response.json()
+    const userData = data.user
 
     const appUser: User = {
-      uid: user.uid,
-      email: user.email || "",
-      displayName: user.displayName || "User",
-      photoURL: user.photoURL || "/placeholder.svg?height=40&width=40",
-      bio: userData?.bio || "",
-      location: userData?.location || "",
-      phoneNumber: userData?.phoneNumber || "",
-      role: userData?.role || "user"
+      uid: userData.uid,
+      email: userData.email,
+      displayName: userData.displayName,
+      photoURL: userData.photoURL || "/placeholder.svg?height=40&width=40",
+      role: userData.role || "user",
+      bio: userData.bio || "",
+      location: userData.location || "",
+      phoneNumber: userData.phone || "",
+      accessToken: data.accessToken
     }
 
     this.currentUser = appUser
     localStorage.setItem("auth_user", JSON.stringify(appUser))
+
+    // Log login activity (optional, could be done by backend in /login route)
+    // await this.logActivity(...) 
+
     return appUser
   }
 
   async signOut(): Promise<void> {
-    if (this.currentUser?.uid) {
-      try {
-        await this.logActivity(this.currentUser.uid, "Logout", "User signed out")
-      } catch (e) {
-        console.error("Failed to log logout", e)
-      }
-    }
     await firebaseSignOut(auth)
     this.currentUser = null
     if (typeof window !== "undefined") {
@@ -182,7 +169,7 @@ class AuthService {
   async updateUseProfile(uid: string, data: Partial<User>): Promise<void> {
     const user = auth.currentUser
     if (!user) throw new Error("No authenticated user")
-
+    
     // 1. Update Firebase Auth Profile (DisplayName/Photo)
     if (data.displayName || data.photoURL) {
       await firebaseUpdateProfile(user, {
@@ -191,20 +178,24 @@ class AuthService {
       })
     }
 
-    // 2. Update Firestore Data (Bio, Location, Phone)
-    const updates: any = {}
-    if (data.bio !== undefined) updates.bio = data.bio
-    if (data.location !== undefined) updates.location = data.location
-    if (data.phoneNumber !== undefined) updates.phoneNumber = data.phoneNumber
+    // 2. Update Backend Data
+    const token = await user.getIdToken()
+    await fetch("/api/app/profile", {
+        method: "PUT",
+        headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${this.currentUser?.accessToken || token}` // Use backend token if available or fallback
+         },
+        body: JSON.stringify({
+            bio: data.bio,
+            location: data.location,
+            phone: data.phoneNumber,
+            displayName: data.displayName,
+            photoURL: data.photoURL
+        })
+    })
 
-    if (Object.keys(updates).length > 0) {
-      await setDoc(doc(db, "users", uid), updates, { merge: true })
-    }
-
-    // 3. Log Activity
-    await this.logActivity(uid, "Profile Update", "Updated account details")
-
-    // 4. Update local state forcefully
+    // 3. Update local state
     if (this.currentUser) {
       this.currentUser = { ...this.currentUser, ...data }
       localStorage.setItem("auth_user", JSON.stringify(this.currentUser))
@@ -220,7 +211,6 @@ class AuthService {
     await reauthenticateWithCredential(user, credential)
 
     await firebaseUpdatePassword(user, newPassword)
-    await this.logActivity(user.uid, "Security Update", "Changed account password")
   }
 
   async sendPasswordResetEmail(email: string): Promise<void> {
@@ -233,37 +223,9 @@ class AuthService {
   }
 
   async getRecentActivity(uid: string): Promise<ActivityLog[]> {
-    try {
-      const q = query(
-        collection(db, `users/${uid}/activity`),
-        orderBy("timestamp", "desc"),
-        limit(10)
-      )
-      const querySnapshot = await getDocs(q)
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        action: doc.data().action,
-        details: doc.data().details,
-        ip: doc.data().ip || "Unknown",
-        timestamp: (doc.data().timestamp as Timestamp).toDate()
-      }))
-    } catch (error) {
-      console.error("Error fetching activity", error)
-      return []
-    }
-  }
-
-  private async logActivity(uid: string, action: string, details: string) {
-    try {
-      await addDoc(collection(db, `users/${uid}/activity`), {
-        action,
-        details,
-        ip: "127.0.0.1", // In a real app, you'd get this from a backend function
-        timestamp: serverTimestamp()
-      })
-    } catch (error) {
-      console.error("Failed to log activity", error)
-    }
+     // TODO: Implement /api/app/activity endpoint if user activity history is needed
+     // For now returning empty array as we migrated away from direct Firestore access
+     return []
   }
 
   getCurrentUser(): User | null {

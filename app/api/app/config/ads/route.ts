@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server"
-import { adminDb } from "@/lib/internal/firebase"
+import { prisma } from "@/lib/db/prisma"
 
 export async function GET() {
     try {
-        const adsDoc = await adminDb.collection("config").doc("ads").get()
+        const adsSetting = await prisma.appSetting.findUnique({
+            where: { key: "config_ads" },
+        })
 
         // Return default empty config if not found
-        const adsConfig = adsDoc.exists ? adsDoc.data() : {
+        const adsConfig = adsSetting?.value || {
             profiles: [
                 {
                     id: "default",

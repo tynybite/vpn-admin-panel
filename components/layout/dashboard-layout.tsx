@@ -264,11 +264,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       )}>
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 flex items-center justify-center bg-primary text-primary-foreground font-heading font-bold text-lg">
-            V
+            P
           </div>
           {!isCollapsed && (
              <span className="text-lg font-heading font-bold tracking-tight uppercase">
-               VPN<span className="text-muted-foreground">ADMIN</span>
+               Pika<span className="text-muted-foreground">VPN</span>
              </span>
           )}
         </div>
@@ -351,6 +351,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Mobile Sheet */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="p-0 w-64 border-r border-border rounded-none">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Navigation Menu</SheetTitle>
+          </SheetHeader>
           <SidebarContent />
         </SheetContent>
       </Sheet>

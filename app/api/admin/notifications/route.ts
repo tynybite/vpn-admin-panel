@@ -1,30 +1,39 @@
-import { NextResponse } from "next/server";
-import { adminDb, adminMessaging } from "@/lib/internal/firebase";
-import { getAdminFromRequest } from "@/lib/auth-helper";
-import { Timestamp } from "firebase-admin/firestore";
+import { NextResponse } from "next/server"
+import { prisma } from "@/lib/db/prisma"
+import { adminMessaging } from "@/lib/internal/firebase"
+import { getAdminFromRequest } from "@/lib/auth-helper"
 
 export async function GET(request: Request) {
-    const adminPerm = await getAdminFromRequest(request);
-    if (!adminPerm) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const adminPerm = await getAdminFromRequest(request)
+    if (!adminPerm) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
     try {
-        const snapshot = await adminDb.collection("notifications").orderBy("sentAt", "desc").get();
-        const notifications = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            sentAt: (doc.data().sentAt as any)?.toDate().toLocaleString() || "",
-        }));
+        const notifications = await prisma.notificationLog.findMany({
+            orderBy: { sentAt: "desc" },
+        })
 
-        return NextResponse.json({ notifications });
+        const formatted = notifications.map((n: { id: any; type: any; title: any; body: any; targetUsers: any; sentBy: any; sentAt: { toLocaleString: () => any }; success: any; failed: any }) => ({
+            id: n.id,
+            type: n.type,
+            title: n.title,
+            body: n.body,
+            targetUsers: n.targetUsers,
+            sentBy: n.sentBy,
+            sentAt: n.sentAt.toLocaleString(),
+            success: n.success,
+            failed: n.failed,
+        }))
+
+        return NextResponse.json({ notifications: formatted })
     } catch (error) {
-        console.error("Error fetching notifications:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        console.error("Error fetching notifications:", error)
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
     }
 }
 
 export async function POST(request: Request) {
-    const adminPerm = await getAdminFromRequest(request);
-    if (!adminPerm) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const adminPerm = await getAdminFromRequest(request)
+    if (!adminPerm) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
     try {
         const {
@@ -40,50 +49,29 @@ export async function POST(request: Request) {
             min_version,
             max_version,
             priority = "high"
-        } = await request.json();
+        } = await request.json()
 
         if (!title || !message) {
-            return NextResponse.json({ error: "Title and message are required" }, { status: 400 });
+            return NextResponse.json({ error: "Title and message are required" }, { status: 400 })
         }
 
         // Determine target topic
-        let condition = "";
-        let topic = "";
-
+        let topic = "all"
         switch (target) {
-            case "all":
-                topic = "all";
-                break;
-            case "premium":
-                topic = "premium";
-                break;
-            case "free":
-                topic = "free";
-                break;
-            default:
-                // For 'specific', we might need individual tokens which isn't implemented in this simple UI yet
-                // defaulting to 'all' for safety or throwing error
-                topic = "all";
+            case "premium": topic = "premium"; break
+            case "free": topic = "free"; break
+            default: topic = "all"
         }
 
         // Construct FCM message
         const fcmMessage = {
-            notification: {
-                title,
-                body: message,
-            },
+            notification: { title, body: message },
             android: {
                 priority: (priority === "high" ? "high" : "normal") as "high" | "normal",
             },
             apns: {
-                payload: {
-                    aps: {
-                        contentAvailable: true,
-                    },
-                },
-                headers: {
-                    "apns-priority": priority === "high" ? "10" : "5",
-                },
+                payload: { aps: { contentAvailable: true } },
+                headers: { "apns-priority": priority === "high" ? "10" : "5" },
             },
             topic: topic,
             data: {
@@ -97,61 +85,40 @@ export async function POST(request: Request) {
                 ...(max_version && { max_version }),
                 priority
             }
-        };
-
-        let messageId = "";
-        let status = "sent";
-
-        // If scheduled (not implemented in FCM directly easily without external scheduler, 
-        // but we can save as 'scheduled' in DB and have a cron job pick it up. 
-        // For this MVP, we will only send immediate if no schedule is provided, 
-        // or just mark as 'scheduled' in DB without sending if date provided.)
-
-        if (!scheduleDate) {
-            // Send immediately
-            messageId = await adminMessaging.send(fcmMessage);
-        } else {
-            status = "scheduled";
-            // Logic for actual scheduling would go here (e.g. Cloud Scheduler or Task Queue)
-            // For now we just save it as scheduled.
         }
 
-        // Save to Firestore
-        const notificationRecord = {
-            title,
-            message,
-            target,
-            status,
-            image_url: image_url || null,
-            cta_text: cta_text || null,
-            cta_url: cta_url || null,
-            dismissible,
-            min_version: min_version || null,
-            max_version: max_version || null,
-            priority,
-            // Create a date object from schedule or now
-            sentAt: scheduleDate ? Timestamp.fromDate(new Date(`${scheduleDate} ${scheduleTime}`)) : Timestamp.now(),
-            recipients: 0, // Placeholder, hard to know exact count without analytics
-            delivered: 0,
-            opened: 0,
-            fcmMessageId: messageId || null,
-            createdAt: Timestamp.now(),
-        };
+        let messageId = ""
+        let status = "sent"
 
-        const docRef = await adminDb.collection("notifications").add(notificationRecord);
+        if (!scheduleDate) {
+            messageId = await adminMessaging.send(fcmMessage)
+        } else {
+            status = "scheduled"
+        }
 
-        const admin = await getAdminFromRequest(request);
-        // We bypass the logger here as it might need refactoring too, or update it
-        // await logAdminAction(...)
+        // Save to PostgreSQL
+        const notification = await prisma.notificationLog.create({
+            data: {
+                type: scheduleDate ? "scheduled" : "broadcast",
+                title,
+                body: message,
+                targetUsers: [target],
+                sentBy: adminPerm.email || adminPerm.uid,
+                sentAt: scheduleDate
+                    ? new Date(`${scheduleDate} ${scheduleTime}`)
+                    : new Date(),
+                success: status === "sent" ? 1 : 0,
+                failed: 0,
+            },
+        })
 
         return NextResponse.json({
             success: true,
-            id: docRef.id,
+            id: notification.id,
             messageId
-        });
-
+        })
     } catch (error) {
-        console.error("Error sending notification:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        console.error("Error sending notification:", error)
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
     }
 }

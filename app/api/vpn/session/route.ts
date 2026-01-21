@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
-import { adminDb, adminStorage } from "@/lib/internal/firebase"
+import { prisma } from "@/lib/db/prisma"
+import { readOvpnFile } from "@/lib/storage/plesk"
 import { getUserFromRequest } from "@/lib/internal/permissions"
 import { checkRateLimit, rateLimitResponse } from "@/lib/internal/rateLimit"
 import { v4 as uuidv4 } from "uuid"
@@ -23,52 +24,59 @@ export async function POST(request: Request) {
             return rateLimitResponse()
         }
 
-        // 2. Fetch User Data (Source of Truth Re-check)
-        const userDoc = await adminDb.collection("users").doc(user.uid as string).get()
-        if (!userDoc.exists) {
+        // 2. Fetch User Data from PostgreSQL
+        const userData = await prisma.user.findUnique({
+            where: { id: user.uid as string },
+        })
+
+        if (!userData) {
             return NextResponse.json({ error: "User profile NOT found" }, { status: 404 })
         }
-        const userData = userDoc.data()
-        const currentPlan = userData?.plan || userData?.tier || "free"
 
-        // 3. Fetch server data
-        const serverDoc = await adminDb.collection("servers").doc(serverId).get()
-        if (!serverDoc.exists) {
+        const currentPlan = userData.plan || "free"
+
+        // 3. Fetch server data from PostgreSQL
+        const serverData = await prisma.server.findUnique({
+            where: { id: serverId },
+        })
+
+        if (!serverData) {
             return NextResponse.json({ error: "Server NOT found" }, { status: 404 })
         }
 
-        const serverData = serverDoc.data()
-        if (!serverData?.isActive) {
+        if (!serverData.isActive) {
             return NextResponse.json({ error: "Server is disabled" }, { status: 403 })
         }
 
         // 4. Validate tier (DB Re-check)
         if (serverData.tier === "premium" && currentPlan !== "premium") {
-            let hasTempAccess = false;
+            let hasTempAccess = false
 
             // Check for specific server access
-            const specificAccessId = `${user.uid}_${serverId}`;
-            const specificAccessDoc = await adminDb.collection("temporary_access").doc(specificAccessId).get();
+            const specificAccess = await prisma.temporaryAccess.findFirst({
+                where: {
+                    userId: user.uid as string,
+                    serverId: serverId,
+                    expiresAt: { gt: new Date() },
+                },
+            })
 
-            if (specificAccessDoc.exists) {
-                const data = specificAccessDoc.data();
-                // Handle Firestore Timestamp or Date string
-                const expiresAt = data?.expiresAt?.toDate ? data.expiresAt.toDate() : new Date(data?.expiresAt);
-                if (expiresAt > new Date()) {
-                    hasTempAccess = true;
-                }
+            if (specificAccess) {
+                hasTempAccess = true
             }
 
-            // Check for universal access (if applicable)
+            // Check for universal access (serverId = null means ALL servers)
             if (!hasTempAccess) {
-                const allAccessId = `${user.uid}_ALL`;
-                const allAccessDoc = await adminDb.collection("temporary_access").doc(allAccessId).get();
-                if (allAccessDoc.exists) {
-                    const data = allAccessDoc.data();
-                    const expiresAt = data?.expiresAt?.toDate ? data.expiresAt.toDate() : new Date(data?.expiresAt);
-                    if (expiresAt > new Date()) {
-                        hasTempAccess = true;
-                    }
+                const allAccess = await prisma.temporaryAccess.findFirst({
+                    where: {
+                        userId: user.uid as string,
+                        serverId: null,
+                        expiresAt: { gt: new Date() },
+                    },
+                })
+
+                if (allAccess) {
+                    hasTempAccess = true
                 }
             }
 
@@ -77,39 +85,13 @@ export async function POST(request: Request) {
             }
         }
 
-        // 3. Fetch OVPN template
-        // Note: In Phase 1, we assume the ovpnFileUrl points to a file in Firebase Storage.
-        // We should read the content directly from Storage.
+        // 5. Fetch OVPN config from Plesk filesystem
         let ovpnConfig = ""
-        if (serverData.ovpnFileUrl || serverData.ovpnFilePath) {
+        if (serverData.ovpnFilePath) {
             try {
-                // Extract file path from URL or use a dedicated field if available
-                // For now, let's assume we can get the file from the bucket
-                const bucket = adminStorage.bucket()
-
-                if (serverData.ovpnFilePath) {
-                    const [fileContent] = await bucket.file(serverData.ovpnFilePath).download()
-                    ovpnConfig = fileContent.toString("utf-8")
-                } else if (serverData.ovpnFileUrl) {
-                    // Fallback to regex for legacy /o/ URLs
-                    const matches = serverData.ovpnFileUrl.match(/\/o\/(.+?)\?/)
-                    if (matches && matches[1]) {
-                        const filePath = decodeURIComponent(matches[1])
-                        const [fileContent] = await bucket.file(filePath).download()
-                        ovpnConfig = fileContent.toString("utf-8")
-                    } else {
-                        // Final Fallback: Try fetching the URL directly (works for GCS signed URLs)
-                        console.log("Attempting to fetch OVPN config directly from URL...");
-                        const response = await fetch(serverData.ovpnFileUrl);
-                        if (response.ok) {
-                            ovpnConfig = await response.text();
-                        } else {
-                            console.error("Failed to fetch OVPN from URL. Status:", response.status);
-                        }
-                    }
-                }
+                ovpnConfig = await readOvpnFile(serverData.ovpnFilePath)
             } catch (e) {
-                console.error("Error downloading OVPN file:", e)
+                console.error("Error reading OVPN file:", e)
                 return NextResponse.json({ error: "Could NOT fetch OVPN config" }, { status: 500 })
             }
         }
@@ -118,24 +100,23 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "OVPN config NOT found for this server" }, { status: 500 })
         }
 
-        // 4. Create Session
+        // 6. Create Session in PostgreSQL
         const sessionId = `sess_${uuidv4().substring(0, 12)}`
-        const userId = user?.uid || "anonymous"
+        const userId = user.uid as string
         const expiresAt = Math.floor(Date.now() / 1000) + 3600 // 1 hour session
         const temporaryToken = uuidv4().substring(0, 16)
 
-        const sessionRecord = {
-            sessionId,
-            userId,
-            serverId,
-            expiresAt,
-            revoked: false,
-            createdAt: new Date().toISOString(),
-        }
+        await prisma.vpnSession.create({
+            data: {
+                sessionId,
+                userId,
+                serverId,
+                expiresAt,
+                revoked: false,
+            },
+        })
 
-        await adminDb.collection("vpn_sessions").doc(sessionId).set(sessionRecord)
-
-        // 5. Output
+        // 7. Output
         return NextResponse.json({
             ovpnConfig,
             username: serverData.username || `u_${userId}_${sessionId}`,
