@@ -312,9 +312,9 @@ export default function NotificationsPage() {
                           </TableCell>
                           <TableCell>{getStatusBadge(notification.status)}</TableCell>
                           <TableCell className="text-sm">{notification.sentAt}</TableCell>
-                          <TableCell>{notification.recipients.toLocaleString()}</TableCell>
-                          <TableCell>{notification.delivered.toLocaleString()}</TableCell>
-                          <TableCell>{notification.opened.toLocaleString()}</TableCell>
+                          <TableCell>{(notification.recipients ?? 0).toLocaleString()}</TableCell>
+                          <TableCell>{(notification.delivered ?? 0).toLocaleString()}</TableCell>
+                          <TableCell>{(notification.opened ?? 0).toLocaleString()}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-2">
                               <Button
