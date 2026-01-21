@@ -127,8 +127,8 @@ export async function PUT(request: Request) {
             return NextResponse.json({ error: "Server not found" }, { status: 404 })
         }
 
-        // Handle OVPN Update
-        let ovpnFilePath = existingServer.ovpnFilePath
+        // Handle OVPN Update - only if new file is provided
+        let newOvpnFilePath = existingServer.ovpnFilePath
         if (ovpnFileContent && ovpnFileName) {
             // Delete old file if exists
             if (existingServer.ovpnFilePath) {
@@ -139,15 +139,32 @@ export async function PUT(request: Request) {
                 }
             }
             // Save new file
-            ovpnFilePath = await saveOvpnFile(id, ovpnFileName, ovpnFileContent)
+            newOvpnFilePath = await saveOvpnFile(id, ovpnFileName, ovpnFileContent)
         }
 
-        // Update server record
+        // Update server record with explicit fields (never overwrite ovpnFilePath unintentionally)
         await prisma.server.update({
             where: { id },
             data: {
-                ...serverData,
-                ovpnFilePath,
+                name: serverData.name,
+                country: serverData.country,
+                flag: serverData.flag,
+                ip: serverData.ip,
+                port: serverData.port,
+                protocol: serverData.protocol,
+                tier: serverData.tier,
+                maxCapacity: serverData.maxCapacity,
+                streaming: serverData.streaming,
+                p2p: serverData.p2p,
+                notes: serverData.notes,
+                isActive: serverData.isActive,
+                username: serverData.username,
+                password: serverData.password,
+                load: serverData.load,
+                currentUsers: serverData.currentUsers,
+                status: serverData.status,
+                // Only update ovpnFilePath - never clear it unless explicitly replaced
+                ...(newOvpnFilePath !== undefined && { ovpnFilePath: newOvpnFilePath }),
             },
         })
 
