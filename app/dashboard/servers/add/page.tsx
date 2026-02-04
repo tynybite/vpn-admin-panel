@@ -40,8 +40,8 @@ export default function AddServerPage() {
     p2p: false,
     notes: "",
     isActive: true,
-    username: "spshostpika@namecheap",
-    password: "f0ZCRr2pFe",
+    username: "ncphostpika@namecheap",
+    password: "P8KlDd6tMH",
   })
 
   useEffect(() => {
